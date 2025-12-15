@@ -36,3 +36,7 @@ gunicorn
 gevent
 gevent-websocket
 Flask-SocketIO
+fpdf
+requests
+psutil
+groq
