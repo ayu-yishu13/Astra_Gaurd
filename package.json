@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.0",
+    "framer-motion": "^12.23.24",
+    "react-router-dom": "^7.9.5",
+    "socket.io-client": "^4.8.1",
+    "three": "^0.181.1"
+  }
+}

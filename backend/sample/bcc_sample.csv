@@ -1,0 +1,2 @@
+proto,src_port,dst_port,flow_duration,total_fwd_pkts,total_bwd_pkts,flags_numeric,payload_len,header_len,rate,iat,syn,ack,rst,fin
+6,12345,443,100000,20,5,2,5000,800,50,20000,1,1,0,0

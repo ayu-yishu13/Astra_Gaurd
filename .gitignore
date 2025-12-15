@@ -1,0 +1,18 @@
+# --- SENSITIVE KEYS (Never Push) ---
+.env
+backend/.env
+frontend/.env
+*.env
+
+# --- HEAVY FOLDERS (Never Push) ---
+node_modules/
+frontend/node_modules/
+backend/env/
+env/
+__pycache__/
+backend/__pycache__/
+dist/
+build/
+
+# --- ML MODELS (Ignore entire folder over 100MB) ---
+backend/ml_models/

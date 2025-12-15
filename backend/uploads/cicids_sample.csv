@@ -1,0 +1,2 @@
+Protocol,Dst Port,Flow Duration,Tot Fwd Pkts,Tot Bwd Pkts,TotLen Fwd Pkts,TotLen Bwd Pkts,Fwd Pkt Len Mean,Bwd Pkt Len Mean,Flow IAT Mean,Fwd PSH Flags,Fwd URG Flags,Fwd IAT Mean
+

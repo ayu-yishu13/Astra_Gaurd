@@ -1,0 +1,1 @@
+{"model": "cicids", "expected": "Brute Force -XSS", "predicted": "DoS attacks-Slowloris", "values": [6, 80, 5000000, 2, 2, 120, 120, 60, 60, 2000000, 0, 0, 2000000], "note": "Model is wrong"}
