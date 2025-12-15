@@ -6,6 +6,7 @@ import logging
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
+import os  # <-- ADDED: For reading environment variables
 
 
 # lightweight logging
@@ -28,9 +29,11 @@ try:
         MAIL_SERVER="smtp.gmail.com",
         MAIL_PORT=587,
         MAIL_USE_TLS=True,
-        MAIL_USERNAME="yishu2005.ju@gmail.com",
-        MAIL_PASSWORD="prko cejt awef zmmi",
-        MAIL_DEFAULT_SENDER=("Adaptive AI NIDS", "yishu2005.ju@gmail.com")
+        # --- SECURITY FIX: Fetch credentials from environment variables ---
+        MAIL_USERNAME=os.environ.get("MAIL_USERNAME"), 
+        MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD"),
+        # -----------------------------------------------------------------
+        MAIL_DEFAULT_SENDER=("Adaptive AI NIDS", os.environ.get("MAIL_USERNAME"))
     )
     mail.init_app(app)
 
@@ -97,10 +100,9 @@ def home():
     })
 
 
-if __name__ == "__main__":
-    print("🚀 Starting Adaptive AI NIDS Backend (threading mode)...")
-    # Run without debug — debug spawns extra processes and uses more CPU
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
-
-
+# --- REMOVED: The local run block is removed. Gunicorn will handle startup on Render. ---
+# if __name__ == "__main__":
+#     print("🚀 Starting Adaptive AI NIDS Backend (threading mode)...")
+#     # Run without debug — debug spawns extra processes and uses more CPU
+#     socketio.run(app, host="0.0.0.0", port=5000, debug=False)
 
