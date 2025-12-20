@@ -40,3 +40,6 @@ fpdf
 requests
 psutil
 groq
+gunicorn
+eventlet
+huggingface_hub

@@ -1,64 +1,57 @@
-# =============================================================
-# FILE: app.py
-# Optimized Flask + SocketIO entry (threading mode, no debug)
-# =============================================================
 import logging
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
-import os  # <-- ADDED: For reading environment variables
-
+import os
+import socket
 
 # lightweight logging
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 logging.getLogger('socketio').setLevel(logging.ERROR)
 
-
 app = Flask(__name__)
+
+# UPDATED: More robust CORS for deployment
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-
-# Use threading mode to avoid eventlet monkey-patch issues with Scapy/IO
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-
-# Mail initialization is left as-is but keep credentials out of source in production
+# Mail initialization
 try:
     from extensions import mail
     app.config.update(
         MAIL_SERVER="smtp.gmail.com",
         MAIL_PORT=587,
         MAIL_USE_TLS=True,
-        # --- SECURITY FIX: Fetch credentials from environment variables ---
         MAIL_USERNAME=os.environ.get("MAIL_USERNAME"), 
         MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD"),
-        # -----------------------------------------------------------------
         MAIL_DEFAULT_SENDER=("Adaptive AI NIDS", os.environ.get("MAIL_USERNAME"))
     )
     mail.init_app(app)
-
 except Exception:
-# If mail is not available in dev/test, continue gracefully
     pass
 
-
-# lazy import of sniffer so import side-effects are minimal
 sniffer = None
-
 
 def _get_sniffer():
     global sniffer
     if sniffer is None:
-        from capture.live_manager import sniffer as _s
-        sniffer = _s
+        try:
+            # CLOUD GUARD: Don't import sniffer if on a cloud server that blocks raw sockets
+            # Render and Hugging Face usually set specific env variables
+            if os.environ.get("RENDER") or os.environ.get("SPACE_ID"):
+                print("⚠️ Cloud environment detected. Skipping sniffer initialization.")
+                return None
+            
+            from capture.live_manager import sniffer as _s
+            sniffer = _s
+        except Exception as e:
+            print(f"⚠️ Could not initialize sniffer: {e}")
+            return None
     return sniffer
 
-
-# Register blueprints lazily to avoid heavy imports at startup
 def register_blueprints(app):
     from importlib import import_module
-
-
     routes = [
         ("routes.live_route", "live_bp", "/api/live"),
         ("routes.logs_route", "logs_bp", "/api/logs"),
@@ -83,26 +76,26 @@ def register_blueprints(app):
             bp = getattr(mod, varname)
             app.register_blueprint(bp, url_prefix=prefix)
             print(f"✅ Registered route: {module_name} -> {prefix}")
-
         except Exception as e:
             print(f"⚠️ Skipping {module_name}: {e}")
 
 register_blueprints(app)
 
-
 @app.route("/")
 def home():
+    # Detect environment for frontend awareness
+    is_cloud = os.environ.get("RENDER") or os.environ.get("SPACE_ID")
     s = _get_sniffer()
+    
     return jsonify({
-    "status": "✅ Backend Active",
-    "capture_running": s.is_running() if s else False,
-    "tip": "Use /api/live/start and /api/live/stop to control capture"
+        "status": "✅ Backend Active",
+        "env": "cloud" if is_cloud else "local",
+        "capture_capability": "limited" if is_cloud else "full",
+        "capture_running": s.is_running() if s else False,
+        "tip": "Live sniffing requires local deployment."
     })
 
-
-# --- REMOVED: The local run block is removed. Gunicorn will handle startup on Render. ---
 if __name__ == "__main__":
-     print("🚀 Starting Adaptive AI NIDS Backend (threading mode)...")
-#     # Run without debug — debug spawns extra processes and uses more CPU
-     socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    print("🚀 Starting Adaptive AI NIDS Backend...")
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
 
