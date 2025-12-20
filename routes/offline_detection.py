@@ -1,14 +1,18 @@
 import os
 import pandas as pd
+import joblib
 from flask import Blueprint, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from datetime import datetime
-import joblib
 from fpdf import FPDF
+
+# --- IMPORT UTILS ---
 from utils.pcap_to_csv import convert_pcap_to_csv
+from utils.model_selector import load_model
 
 offline_bp = Blueprint("offline_bp", __name__)
 
+# --- CONFIGURATION ---
 UPLOAD_DIR = "uploads"
 SAMPLE_DIR = "sample"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -16,7 +20,6 @@ os.makedirs(SAMPLE_DIR, exist_ok=True)
 
 ALLOWED_EXT = {"csv", "pcap"}
 
-# Features
 BCC_FEATURES = [
     "proto","src_port","dst_port","flow_duration","total_fwd_pkts","total_bwd_pkts",
     "flags_numeric","payload_len","header_len","rate","iat","syn","ack","rst","fin"
@@ -28,36 +31,18 @@ CICIDS_FEATURES = [
     "Flow IAT Mean","Fwd PSH Flags","Fwd URG Flags","Fwd IAT Mean"
 ]
 
-# Models
-bcc_model = joblib.load("ml_models/realtime_model.pkl")
-bcc_encoder = joblib.load("ml_models/realtime_encoder.pkl")
-bcc_scaler = joblib.load("ml_models/realtime_scaler.pkl")
-
-cicids_model = joblib.load("ml_models/rf_pipeline.joblib")
-
-
 def allowed(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
 
-
-# 📌 Sample CSV Download
-@offline_bp.route("/sample/<model>", methods=["GET"])
-def download_sample(model):
-    file_path = None
-    if model == "bcc":
-        file_path = os.path.join(SAMPLE_DIR, "bcc_sample.csv")
-    elif model == "cicids":
-        file_path = os.path.join(SAMPLE_DIR, "cicids_sample.csv")
-    else:
-        return jsonify(success=False, message="Invalid model"), 400
-
+# --- ROUTE: DOWNLOAD SAMPLE ---
+@offline_bp.route("/sample/<model_type>", methods=["GET"])
+def download_sample(model_type):
+    file_path = os.path.join(SAMPLE_DIR, f"{model_type}_sample.csv")
     if not os.path.exists(file_path):
         return jsonify(success=False, message="Sample file missing"), 404
-
     return send_file(file_path, as_attachment=True)
 
-
-# 📌 Prediction API
+# --- ROUTE: PREDICT ---
 @offline_bp.route("/predict", methods=["POST"])
 def offline_predict():
     if "file" not in request.files:
@@ -73,43 +58,61 @@ def offline_predict():
     saved_path = os.path.join(UPLOAD_DIR, filename)
     file.save(saved_path)
 
-    # PCAP Conversion
+    # PCAP to CSV Conversion if needed
     if filename.lower().endswith(".pcap"):
-        saved_path = convert_pcap_to_csv(saved_path)
-    
+        try:
+            saved_path = convert_pcap_to_csv(saved_path)
+        except Exception as e:
+            return jsonify(success=False, message=f"PCAP conversion failed: {str(e)}"), 500
 
-    df = pd.read_csv(saved_path)
-    # Prevent empty CSV prediction
-    if df.shape[0] == 0:
-        return jsonify(success=False, message="CSV has no data rows to analyze!"), 400
-    
-    expected = BCC_FEATURES if model_type == "bcc" else CICIDS_FEATURES
+    # Load Data
+    try:
+        df = pd.read_csv(saved_path)
+        if df.empty:
+            return jsonify(success=False, message="CSV has no data!"), 400
+    except Exception as e:
+        return jsonify(success=False, message=f"Error reading CSV: {str(e)}"), 400
 
+    # 🚀 DYNAMIC MODEL LOADING
+    # This prevents the "File Not Found" error at startup
+    try:
+        model_data = load_model(model_type)
+        model = model_data['model']
+        
+        if model_type == "bcc":
+            encoder = model_data['encoder']
+            scaler = model_data['scaler']
+            expected = BCC_FEATURES
+        else:
+            expected = CICIDS_FEATURES
+    except Exception as e:
+        return jsonify(success=False, message=f"Model loading failed: {str(e)}"), 500
+
+    # Feature Verification
     missing = [c for c in expected if c not in df.columns]
     if missing:
-        return jsonify(success=False, message=f"Missing features: {missing}")
+        return jsonify(success=False, message=f"Missing features: {missing}"), 400
 
-    df = df[expected]
-
+    # Prediction Logic
+    input_data = df[expected]
     if model_type == "bcc":
-        scaled = bcc_scaler.transform(df)
-        preds = bcc_model.predict(scaled)
-        labels = bcc_encoder.inverse_transform(preds)
+        scaled = scaler.transform(input_data)
+        preds = model.predict(scaled)
+        labels = encoder.inverse_transform(preds)
     else:
-        labels = cicids_model.predict(df)
+        labels = model.predict(input_data)
 
     df["prediction"] = labels
     class_counts = df["prediction"].value_counts().to_dict()
-
     results = [{"index": i, "class": lbl} for i, lbl in enumerate(labels)]
 
+    # Save results for PDF generation
     result_file = os.path.join(UPLOAD_DIR, "last_results.csv")
     df.to_csv(result_file, index=False)
 
     return jsonify(success=True, classCounts=class_counts, results=results)
 
-
-# 📌 PDF Report Generation
+# --- ROUTE: PDF REPORT ---
 @offline_bp.route("/report", methods=["GET"])
 def offline_report():
     result_file = os.path.join(UPLOAD_DIR, "last_results.csv")
@@ -118,20 +121,24 @@ def offline_report():
 
     df = pd.read_csv(result_file)
     class_counts = df["prediction"].value_counts().to_dict()
-
     pdf_path = os.path.join(UPLOAD_DIR, "offline_report.pdf")
 
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "AI-NIDS Offline Threat Analysis Report", ln=True)
+    pdf.cell(0, 10, "AI-NIDS Offline Threat Analysis Report", ln=True, align='C')
+    pdf.ln(10)
 
     pdf.set_font("Arial", size=12)
-    pdf.cell(0, 10, f"Generated: {datetime.now()}", ln=True)
+    pdf.cell(0, 10, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
     pdf.ln(5)
 
-    for c, v in class_counts.items():
-        pdf.cell(0, 8, f"{c}: {v}", ln=True)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Classification Summary:", ln=True)
+    pdf.set_font("Arial", size=12)
+    
+    for cls, count in class_counts.items():
+        pdf.cell(0, 8, f"- {cls}: {count} occurrences", ln=True)
 
     pdf.output(pdf_path)
     return send_file(pdf_path, as_attachment=True)

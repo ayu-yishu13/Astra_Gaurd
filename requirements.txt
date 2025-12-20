@@ -4,6 +4,7 @@ flask-cors==4.0.1
 Flask-SocketIO==5.3.6
 gunicorn==22.0.0
 eventlet==0.35.2
+Flask-Mail==0.9.1
 requests
 
 # Machine Learning & Data (Stable Versions)
