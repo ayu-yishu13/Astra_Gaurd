@@ -1,18 +1,61 @@
-# --- SENSITIVE KEYS (Never Push) ---
-.env
-backend/.env
-frontend/.env
-*.env
-
-# --- HEAVY FOLDERS (Never Push) ---
-node_modules/
-frontend/node_modules/
-backend/env/
-env/
+# --- Python Specific ---
 __pycache__/
-backend/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# --- ML Models (Ignored because they are on the HF Hub) ---
+# We ignore the local folder to prevent 1.5GB pushes
+ml_models/
+*.joblib
+*.pkl
+*.pth
+*.onnx
+
+# --- Environment & Secrets ---
+# Never push your API keys or email passwords
+.env
+.flaskenv
+secrets.json
+
+# --- OS Specific ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# --- Frontend (Excluding local frontend code if in same repo) ---
+# Since you'll deploy the frontend separately to Vercel
+frontend/
+node_modules/
 dist/
 build/
 
-# --- ML MODELS (Ignore entire folder over 100MB) ---
-backend/ml_models/
+# --- Logs & Reports ---
+*.log
+backend/reporting/*.pdf
+backend/reporting/*.csv
+
+# --- Docker ---
+.dockerignore
+
+# Fonts and Media
+backend/reporting/*.ttf
+frontend/public/*.mp3
+frontend/src/assests/*.png

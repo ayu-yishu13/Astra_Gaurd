@@ -97,5 +97,6 @@ def home():
 
 if __name__ == "__main__":
     print("🚀 Starting Adaptive AI NIDS Backend...")
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    # 7860 is the magic number for Hugging Face
+    socketio.run(app, host="0.0.0.0", port=7860, debug=False)
 
