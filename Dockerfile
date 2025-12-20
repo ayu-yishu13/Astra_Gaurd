@@ -1,29 +1,37 @@
-# 1. Use a standard Python image
+# Use a slim but stable version of Python
 FROM python:3.9-slim
 
-# 2. Install system-level tools needed for Scapy and Network monitoring
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies for network capturing and building
 RUN apt-get update && apt-get install -y \
     libpcap-dev \
     gcc \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. Create a non-root user for security (Hugging Face requirement)
+# Create a non-root user (Hugging Face requirement)
 RUN useradd -m -u 1000 user
 USER user
-ENV PATH="/home/user/.local/bin:${PATH}"
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
 
-# 4. Set the working directory
-WORKDIR /home/user/app
+WORKDIR $HOME/app
 
-# 5. Copy and install requirements
+# Copy requirements first to leverage Docker cache
 COPY --chown=user requirements.txt .
+
+# Install dependencies
+# We use --no-cache-dir to keep the image small
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# 6. Copy the rest of your code
+# Copy the rest of the application
 COPY --chown=user . .
 
-# 7. Hugging Face uses port 7860 by default
+# Expose the HF default port
 EXPOSE 7860
 
-# 8. Start the server using Gunicorn + Eventlet (Best for SocketIO)
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:7860", "app:app"]
+# Start the application
+CMD ["python", "app.py"]
