@@ -3,19 +3,19 @@
 // ===============================================
 
 const BASE_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+ import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
 // Safe fetch wrapper
 async function safeFetch(url, options = {}, timeout = 10000, retries = 1) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
 
-  try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+ try {
+     const res = await fetch(url, { ...options, signal: controller.signal });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errText}`);
+    if (!res.ok) {
+     const errText = await res.text();
+     throw new Error(`HTTP ${res.status}: ${errText}`);
     }
     return await res.json();
   } catch (err) {
@@ -173,8 +173,8 @@ export const offlinePredictAPI = async (file, model) => {
 
 // ➤ Get PDF forensic report download link
 export const downloadOfflineReport = () => {
-  // FIX: Using BASE_URL for live deployment
-  window.open(`${BASE_URL}/api/offline/report`, "_blank");
+// FIX: Using BASE_URL for live deployment
+     window.open(`${BASE_URL}/api/offline/report`, "_blank");
 };
 
 

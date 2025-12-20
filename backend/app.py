@@ -101,8 +101,8 @@ def home():
 
 
 # --- REMOVED: The local run block is removed. Gunicorn will handle startup on Render. ---
-# if __name__ == "__main__":
-#     print("🚀 Starting Adaptive AI NIDS Backend (threading mode)...")
+if __name__ == "__main__":
+     print("🚀 Starting Adaptive AI NIDS Backend (threading mode)...")
 #     # Run without debug — debug spawns extra processes and uses more CPU
-#     socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+     socketio.run(app, host="0.0.0.0", port=5000, debug=False)
 
