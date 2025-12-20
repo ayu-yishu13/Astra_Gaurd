@@ -10,6 +10,15 @@ import numpy as np
 LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "logs"))
 os.makedirs(LOG_DIR, exist_ok=True)
 
+# ADD THESE TWO LINES:
+LOG_FILE = os.path.join(LOG_DIR, "bcc_logs.csv") # Fallback to BCC log
+
+def classify_risk(score):
+    """Simple helper to convert numeric score to text for the UI"""
+    if score > 0.8: return "High"
+    if score > 0.4: return "Medium"
+    return "Low"
+
 BCC_LOG_FILE = os.path.join(LOG_DIR, "bcc_logs.csv")
 CICIDS_LOG_FILE = os.path.join(LOG_DIR, "cicids_logs.csv")
 
