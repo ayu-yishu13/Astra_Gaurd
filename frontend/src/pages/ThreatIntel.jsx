@@ -1,14 +1,17 @@
-// src/pages/ThreatIntelSwitcher.jsx
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Tilt from "react-parallax-tilt";
-import { Shield, Lock, EyeOff, Globe2, Server, FileWarning, Cpu, Zap, GitPullRequest, Key, Database, CloudSnow, AlertTriangle, Globe } from "lucide-react";
+import { 
+  Shield, Lock, EyeOff, Globe2, Server, FileWarning, 
+  Cpu, Zap, GitPullRequest, Key, Database, CloudSnow, 
+  AlertTriangle, Globe, Search 
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 import "react-circular-progressbar/dist/styles.css";
 
-// optional images — replace paths if needed
+// Assets
 import vpnImg from "../assests/vpn.jpg";
 import torImg from "../assests/tor.png";
 import i2pImg from "../assests/i2p.png";
@@ -25,22 +28,11 @@ import web from "../assests/web.jpeg";
 import xss from "../assests/XXs.png";
 import ChatAssistant from "./ChatAssistant";
 
-
-
-/*
- ThreatIntelSwitcher.jsx
- - Two modes: BCC (your existing) and CICIDS (new)
- - Hybrid naming for CICIDS (Option C)
- - Comparison + Quiz present for both datasets
- - Styling kept identical to your BCC page
-*/
-
-// ---------- BCC threats (existing simplified) ----------
+// ---------- BCC threats ----------
 const THREATS_BCC = {
   VPN: {
     title: "Virtual Private Network (VPN)",
-    desc:
-      "VPNs create an encrypted tunnel between client and server, hiding source IPs and traffic content. Attackers use VPNs to evade detection and obfuscate origin. Many malicious flows appear as legitimate VPN traffic and can hide beaconing patterns. Look for unusual geo-locations or sudden new endpoints in VPN sessions. Combine host telemetry + flow analysis to find misuse.",
+    desc: "VPNs create an encrypted tunnel between client and server, hiding source IPs and traffic content. Attackers use VPNs to evade detection and obfuscate origin.",
     icon: <Shield size={44} className="text-[var(--accent)]" />,
     image: vpnImg,
     risk: "Medium",
@@ -48,8 +40,7 @@ const THREATS_BCC = {
   },
   TOR: {
     title: "The Onion Router (TOR)",
-    desc:
-      "TOR anonymizes traffic using layered encryption across relays; it is commonly used for command-and-control and data exfiltration. TOR exit nodes change frequently so detection relies on known relay lists or traffic fingerprinting. High-risk for ransomware or darknet tool delivery. Often paired with secondary obfuscation such as tunneling. Monitor long-lived connections and unusual destination ports.",
+    desc: "TOR anonymizes traffic using layered encryption across relays; it is commonly used for command-and-control and data exfiltration.",
     icon: <Lock size={44} className="text-[var(--accent)]" />,
     image: torImg,
     risk: "High",
@@ -57,8 +48,7 @@ const THREATS_BCC = {
   },
   I2P: {
     title: "Invisible Internet Project (I2P)",
-    desc:
-      "I2P aims for anonymous P2P connections and is used by advanced threat actors for hidden data transfer. Because it uses different protocols than TOR, detection is harder and relies on signature-based patterns or known endpoint lists. Expect intermittent bursts of traffic and P2P-like flows. Treat as high suspicion and correlate with host artifacts.",
+    desc: "I2P aims for anonymous P2P connections and is used by advanced threat actors for hidden data transfer.",
     icon: <EyeOff size={44} className="text-[var(--accent)]" />,
     image: i2pImg,
     risk: "High",
@@ -66,8 +56,7 @@ const THREATS_BCC = {
   },
   FREENET: {
     title: "Freenet",
-    desc:
-      "Freenet is a decentralized file-sharing network sometimes used for hosting malicious payloads and leaked data. Traffic can be noisy; detection focuses on unusual download/exfil patterns and unfamiliar peers. Risk is moderate but can be a vector for persistent malware propagation. Use endpoint file scanning to complement network indicators.",
+    desc: "Freenet is a decentralized file-sharing network sometimes used for hosting malicious payloads and leaked data.",
     icon: <Server size={44} className="text-[var(--accent)]" />,
     image: freenetImg,
     risk: "Medium",
@@ -75,8 +64,7 @@ const THREATS_BCC = {
   },
   ZERONET: {
     title: "ZeroNet",
-    desc:
-      "ZeroNet leverages Bitcoin identities and BitTorrent protocols for decentralized websites — used by hacktivists and for anonymous content hosting. Traffic fingerprints often include torrent-like handshakes and irregular port usage. Treat connections to ZeroNet peers with caution and cross-check with threat intel feeds.",
+    desc: "ZeroNet leverages Bitcoin identities and BitTorrent protocols for decentralized websites.",
     icon: <Globe2 size={44} className="text-[var(--accent)]" />,
     image: zeronetImg,
     risk: "Medium",
@@ -84,20 +72,18 @@ const THREATS_BCC = {
   },
 };
 
-// ---------- CICIDS threats (14 classes, hybrid naming - Option C) ----------
+// ---------- CICIDS threats ----------
 const THREATS_CICIDS = {
   "Benign": {
     title: "Benign Traffic",
-    desc:
-      "Normal, expected network activity produced by legitimate users and services. It includes routine web browsing, DNS queries, and application traffic. Benign classification helps train models and filter false positives for detection. Always verify baselines — benign patterns vary by environment. Use whitelisting and behavior baselines to avoid noisy alerts.",
+    desc: "Normal, expected network activity produced by legitimate users and services.",
     icon: <Globe size={44} className="text-[var(--accent)]" />,
     risk: "Low",
     usage: "Baseline traffic in datasets",
   },
   "DoS – Hulk": {
     title: "DoS – Hulk",
-    desc:
-      "HULK (HTTP Unbearable Load King) floods web servers with unique HTTP requests to exhaust resources. It uses randomized parameters to bypass caching and make mitigation harder. Detection focuses on request rate, high CPU/memory on web servers, and anomalous user-agent patterns. Rate limiting and WAF tuning can reduce impact. For forensic analysis, check server logs for repeated unique URIs.",
+    desc: "HULK floods web servers with unique HTTP requests to exhaust resources using randomized parameters.",
     icon: <Zap size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: hulkImg,
@@ -105,8 +91,7 @@ const THREATS_CICIDS = {
   },
   "DoS – SlowHTTPTest": {
     title: "DoS – SlowHTTPTest",
-    desc:
-      "SlowHTTPTest holds connections open by sending headers/data very slowly to exhaust server connection slots. It mimics a low-and-slow client and can evade simple rate-based counters. Look for many half-open connections or long-lived slow POST/GET requests. Mitigation includes connection timeouts and reverse proxies that detect low throughput.",
+    desc: "Holds connections open by sending headers/data very slowly to exhaust server connection slots.",
     icon: <FileWarning size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: httpImg,
@@ -114,16 +99,14 @@ const THREATS_CICIDS = {
   },
   "DoS – GoldenEye": {
     title: "DoS – GoldenEye",
-    desc:
-      "GoldenEye is another application-layer DoS that sends malicious HTTP traffic to overwhelm servers. It's similar to HULK but has different request patterns and concurrency behavior. Monitor for spikes in request volume or abnormal error rates. Defenses include autoscaling, traffic shaping, and WAF rules targeted to payload patterns.",
+    desc: "Application-layer DoS that sends malicious HTTP traffic to overwhelm servers.",
     icon: <Cpu size={44} className="text-[var(--accent)]" />,
     risk: "High",
     usage: "Application-layer DoS",
   },
   "DoS – Slowloris": {
     title: "DoS – Slowloris",
-    desc:
-      "Slowloris sends partial HTTP headers to keep many connections open and starve web servers of resources. It differs from volumetric attacks by using few packets and many open sockets. Detection looks for many concurrent slow connections from few IPs. Mitigation with reverse proxies and connection throttling helps reduce exposure to Slowloris.",
+    desc: "Sends partial HTTP headers to keep many connections open and starve web servers of resources.",
     icon: <Key size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: slowlorisImg,
@@ -131,8 +114,7 @@ const THREATS_CICIDS = {
   },
   "FTP – BruteForce": {
     title: "FTP – BruteForce",
-    desc:
-      "Brute-force attempts target FTP credentials by repeatedly trying username/password combinations. Signs include many login attempts from single source IPs or bursts of credential retries across accounts. Harden systems with strong password policy, lockouts, and MFA where possible. Correlate with successful logins and subsequent suspicious file transfers.",
+    desc: "Repeatedly trying username/password combinations to gain access to FTP services.",
     icon: <GitPullRequest size={44} className="text-[var(--accent)]" />,
     risk: "Medium",
     image: bruteforceImg,
@@ -140,8 +122,7 @@ const THREATS_CICIDS = {
   },
   "SSH – BruteForce": {
     title: "SSH – BruteForce",
-    desc:
-      "SSH brute-force attacks attempt many credential combinations to gain shell access. Identifiable by repeated connection attempts and authentication failures. Use fail2ban, key-based auth, and rate limits to prevent compromise. Alert on successful logins after many failures and check for unusual post-auth behavior.",
+    desc: "SSH brute-force attacks attempt many credential combinations to gain shell access.",
     icon: <Lock size={44} className="text-[var(--accent)]" />,
     risk: "Medium",
     image: bruteforceImg,
@@ -149,8 +130,7 @@ const THREATS_CICIDS = {
   },
   "DDoS – HOIC": {
     title: "DDoS – HOIC",
-    desc:
-      "HOIC (High Orbit Ion Cannon) is a volumetric DDoS tool generating massive concurrent HTTP requests to disrupt services. It typically uses many clients in coordinated bursts. Detection shows high bandwidth usage and saturation across network links. Upstream mitigation and scrubbing services are common defenses. Monitor for repeated attack campaigns from multiple origins.",
+    desc: "Volumetric DDoS tool generating massive concurrent HTTP requests to disrupt services.",
     icon: <CloudSnow size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: hoic,
@@ -158,8 +138,7 @@ const THREATS_CICIDS = {
   },
   "DDoS – LOIC UDP": {
     title: "DDoS – LOIC UDP",
-    desc:
-      "LOIC (Low Orbit Ion Cannon) can generate UDP floods that saturate link bandwidth. Traffic is mostly random UDP packets to target ports, causing network drop and service interruption. Rate-based detection and volumetric monitoring identify LOIC UDP floods. Employ blackholing and DDoS mitigation appliances for robust protection.",
+    desc: "Generates UDP floods that saturate link bandwidth and cause service interruption.",
     icon: <Zap size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: loic,
@@ -167,8 +146,7 @@ const THREATS_CICIDS = {
   },
   "Brute Force – Web": {
     title: "Brute Force – Web",
-    desc:
-      "Web brute-force targets web login endpoints or weak authentication mechanisms to gain access. Look for numerous POST requests to login URIs, varying credentials, or rapid failed attempts. Use CAPTCHA, account lockouts, and behavioral analytics to detect these attacks. After compromise, look for privilege escalation or admin panel access.",
+    desc: "Targets web login endpoints or weak authentication mechanisms to gain access.",
     icon: <AlertTriangle size={44} className="text-[var(--accent)]" />,
     risk: "Medium",
     image: web,
@@ -176,8 +154,7 @@ const THREATS_CICIDS = {
   },
   "Brute Force – XSS": {
     title: "Brute Force – XSS",
-    desc:
-      "This class (dataset-labeled) represents web attack attempts focusing on injection-like payloads; treat as suspicious input patterns and attempted exploitation. Detection relies on payload signatures and context-based WAF rules. Validate and sanitize inputs on the server. Monitor for successful script execution and subsequent data exfiltration.",
+    desc: "Web attack attempts focusing on injection-like payloads and attempted exploitation.",
     icon: <FileWarning size={44} className="text-[var(--accent)]" />,
     risk: "Medium",
     image: xss,
@@ -185,8 +162,7 @@ const THREATS_CICIDS = {
   },
   "SQL Injection": {
     title: "SQL Injection",
-    desc:
-      "SQL injection is an attack where user-supplied data manipulates backend SQL queries — can lead to data theft or modification. Detect via payloads containing SQL keywords, repeated similar requests, or unusual query response patterns. Harden apps with prepared statements and parameterized queries. Triage by checking database logs after detection.",
+    desc: "Attack where user-supplied data manipulates backend SQL queries to steal data.",
     icon: <Database size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: sql,
@@ -194,8 +170,7 @@ const THREATS_CICIDS = {
   },
   "Infiltration": {
     title: "Infiltration",
-    desc:
-      "Infiltration covers multi-stage intrusion activity where attackers establish footholds and move laterally. Look for anomalous internal connections, credential reuse, and unusual process execution. Combine endpoint telemetry, network flows, and identity logs for comprehensive detection. Post-detection, isolate affected hosts and perform forensic triage.",
+    desc: "Multi-stage intrusion where attackers establish footholds and move laterally.",
     icon: <Shield size={44} className="text-[var(--accent)]" />,
     risk: "High",
     image: xss,
@@ -203,8 +178,7 @@ const THREATS_CICIDS = {
   },
   "Bot": {
     title: "Bot Activity",
-    desc:
-      "Automated bot traffic includes scraping, credential stuffing, or crawler-like behaviour. It often shows predictable intervals, similar UA strings, or repeated URIs. Differentiate benign crawlers from malicious bots using rate, origin, and behavioral heuristics. Protect resources with bot management and rate limiting.",
+    desc: "Automated traffic including scraping, credential stuffing, or crawler-like behaviour.",
     icon: <Globe size={44} className="text-[var(--accent)]" />,
     risk: "Medium",
     image: web,
@@ -212,32 +186,21 @@ const THREATS_CICIDS = {
   },
 };
 
-// ---------- Utility: prepare chart data from class-count map ----------
 const makeChartDataFromCounts = (counts) =>
   Object.entries(counts).map(([k, v]) => ({ name: k, value: v }));
 
-// small mock counts for CICIDS (from your provided map)
 const CICIDS_COUNTS = {
-  BENIGN: 40000,
-  Bot: 8000,
-  "DoS attacks-Hulk": 8000,
-  "DoS attacks-SlowHTTPTest": 8000,
-  Infilteration: 8000,
-  "DoS attacks-GoldenEye": 8000,
-  "DoS attacks-Slowloris": 8000,
-  "FTP-BruteForce": 8000,
-  "SSH-Bruteforce": 8000,
-  "DDOS attack-HOIC": 8000,
-  "DDOS attack-LOIC-UDP": 1730,
-  "Brute Force -Web": 611,
-  "Brute Force -XSS": 230,
-  "SQL Injection": 87,
+  BENIGN: 40000, Bot: 8000, "DoS attacks-Hulk": 8000, 
+  "DoS attacks-SlowHTTPTest": 8000, Infilteration: 8000, 
+  "DoS attacks-GoldenEye": 8000, "DoS attacks-Slowloris": 8000, 
+  "FTP-BruteForce": 8000, "SSH-Bruteforce": 8000, 
+  "DDOS attack-HOIC": 8000, "DDOS attack-LOIC-UDP": 1730, 
+  "Brute Force -Web": 611, "Brute Force -XSS": 230, "SQL Injection": 87,
 };
 
-// ---------- Main Component ----------
 export default function ThreatIntelInteractive() {
-  const [mode, setMode] = useState("bcc"); // "bcc" | "cicids"
-  const [selected, setSelected] = useState("VPN"); // default for BCC
+  const [mode, setMode] = useState("bcc");
+  const [selected, setSelected] = useState("VPN");
   const [compare, setCompare] = useState("TOR");
   const [query, setQuery] = useState("");
   const [filterRisk, setFilterRisk] = useState("All");
@@ -249,7 +212,6 @@ export default function ThreatIntelInteractive() {
   const threats = mode === "bcc" ? THREATS_BCC : THREATS_CICIDS;
   const keys = useMemo(() => Object.keys(threats), [threats]);
 
-  // keep selected sensible when switching modes
   React.useEffect(() => {
     setSelected((prev) => (keys.includes(prev) ? prev : keys[0]));
     setCompare((prev) => (keys.includes(prev) ? prev : keys[1] || keys[0]));
@@ -266,10 +228,9 @@ export default function ThreatIntelInteractive() {
 
   const threat = threats[selected] || {};
   const compareThreat = threats[compare] || {};
-  const chartData = mode === "cicids" ? makeChartDataFromCounts(CICIDS_COUNTS).slice(0, 8) : []; // show partial if needed
+  const chartData = mode === "cicids" ? makeChartDataFromCounts(CICIDS_COUNTS).slice(0, 8) : [];
 
   const quizQuestions = {
-    // BCC / CICIDS both support a small quiz map; for CICIDS use class-specific Qs (simple)
     ...(mode === "bcc"
       ? {
           VPN: { question: "VPNs primarily encrypt traffic at which layer?", answer: "Network" },
@@ -279,7 +240,6 @@ export default function ThreatIntelInteractive() {
           ZERONET: { question: "ZeroNet commonly pairs with which crypto identity?", answer: "Bitcoin" },
         }
       : {
-          // CICIDS sample quiz questions (pick per-class)
           Benign: { question: "Benign traffic indicates what?", answer: "Normal" },
           "DoS – Hulk": { question: "HULK targets which layer?", answer: "Application" },
           "DoS – SlowHTTPTest": { question: "SlowHTTPTest is what type of DoS?", answer: "Low-and-slow" },
@@ -299,256 +259,130 @@ export default function ThreatIntelInteractive() {
 
   const handleQuizSubmit = () => {
     const q = quizQuestions[selected];
-    if (!q) {
-      setShowQuizResult({ correct: false });
-      setTimeout(() => setShowQuizResult(null), 2000);
-      return;
-    }
+    if (!q) return;
     const correct = quizAnswer.trim().toLowerCase() === q.answer.toLowerCase();
     setShowQuizResult({ correct });
     setTimeout(() => setShowQuizResult(null), 2500);
   };
 
   return (
-    <div className="p-6 space-y-6 relative">
-      
-      {/* subtle glow */}
-      <div
-        className="absolute inset-0 pointer-events-none animate-pulse-slow"
-        style={{
-          background:
-            "radial-gradient(circle at center, color-mix(in srgb, var(--accent) 30%, transparent) 30%, transparent 90%)",
-          opacity: 0.12,
-        }}
-      />
+    // Replace the opening div and header section with this:
+<div className="min-h-screen bg-transparent text-slate-200 p-4 md:p-8 lg:-ml-10 pt-20 lg:pt-10 relative overflow-x-hidden">
+  {/* Subtle background glow */}
+  <div className="absolute inset-0 pointer-events-none"
+    style={{ background: "radial-gradient(circle at 50% 50%, rgba(0, 229, 255, 0.03) 0%, transparent 70%)" }} />
 
-      {/* Title + Flow Button Row */}
-<div className="flex items-center justify-between w-full relative z-10">
-  
-  {/* Heading */}
-  <h1 className=" relative z-20 text-5xl md:text-6xl lg:text-7xl font-extrabold 
-    bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 
-    text-transparent bg-clip-text neon-text leading-tight">
-    Threat Intelligence
-  </h1>
+  {/* Header Section */}
+  <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8 relative z-10">
+    <div>
+      <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-cyan-400 to-blue-500 text-transparent bg-clip-text filter drop-shadow-[0_0_8px_rgba(0,229,255,0.2)]">
+        Threat Intelligence
+      </h1>
+      <div className="flex items-center gap-2 mt-2">
+         <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+         <p className="text-slate-500 font-mono text-[10px] uppercase tracking-[0.2em]">
+           Active Database: {mode === 'bcc' ? 'BCC-HTTP-2019' : 'CIC-IDS-2017'}
+         </p>
+      </div>
+    </div>
+    <button onClick={() => navigate(`/flow?type=${encodeURIComponent(selected)}`)}
+      className="px-6 py-2 bg-transparent border border-cyan-500/30 text-cyan-400 rounded hover:bg-cyan-500/10 transition-all font-bold text-xs uppercase tracking-widest">
+      Initialize Flow Analysis
+    </button>
+  </div>
 
-  {/* Right-Aligned Button */}
-  <button
-    onClick={() => navigate(`/flow?type=${encodeURIComponent(compare)}`)}
-    className="
-      px-5 py-2 
-      bg-black/30
-      backdrop-blur-md
-      border border-[var(--accent)]/30
-      text-[var(--accent)]
-      rounded-lg
-      hover:bg-black/50
-      shadow-lg hover:shadow-[0_0_25px_var(--accent)]
-      transition-all
-      text-xl
-      ml-auto
-    "
-  >
-    View Flow
-  </button>
-
-</div>
-
-
-
-
-      {/* Mode toggle */}
-
-      <div className="flex items-center py-4 gap-3 z-10 relative">
-        <button
-          onClick={() => setMode("bcc")}
-          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-            mode === "bcc"
-              ? "bg-[var(--accent)]/30 border-[var(--accent)]/50 text-[var(--accent)]"
-              : "bg-black/20 border-[var(--accent)]/10 text-slate-400 hover:bg-[var(--accent)]/10"
-          }`}
-        >
-          BCC View
-        </button>
-
-        <button
-          onClick={() => setMode("cicids")}
-          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-            mode === "cicids"
-              ? "bg-[var(--accent)]/30 border-[var(--accent)]/50 text-[var(--accent)]"
-              : "bg-black/20 border-[var(--accent)]/10 text-slate-400 hover:bg-[var(--accent)]/10"
-          }`}
-        >
-          CICIDS View
-        </button>
-
-        <div className="ml-auto flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Search threats..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="bg-black/40 border border-[var(--accent)]/20 px-3 py-2 rounded-lg text-sm text-[var(--accent)] outline-none"
-          />
-          <select
-            value={filterRisk}
-            onChange={(e) => setFilterRisk(e.target.value)}
-            className="bg-black/40 border border-[var(--accent)]/20 px-3 py-2 rounded-lg text-sm text-[var(--accent)] outline-none"
-          >
-            <option>All</option>
-            <option>High</option>
-            <option>Medium</option>
-            <option>Low</option>
+      {/* Control Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 relative z-10">
+        <div className="flex gap-2">
+          {["bcc", "cicids"].map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`px-4 py-2 rounded border text-xs font-bold transition-all uppercase ${mode === m ? "bg-cyan-500 border-cyan-400 text-black shadow-[0_0_20px_rgba(0,229,255,0.4)]" : "bg-black/40 border-slate-800 text-slate-500 hover:border-slate-600"}`}>
+              {m} View
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+            <input type="text" placeholder="FILTER THREATS..." value={query} onChange={(e) => setQuery(e.target.value)}
+              className="w-full bg-black/60 border border-slate-800 pl-10 pr-4 py-2 rounded text-sm text-cyan-400 outline-none focus:border-cyan-500/50 transition-all" />
+          </div>
+          <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)}
+            className="bg-black/60 border border-slate-800 px-3 py-2 rounded text-xs text-slate-400 outline-none">
+            <option>All Risks</option><option>High</option><option>Medium</option><option>Low</option>
           </select>
         </div>
       </div>
 
-      <div className="relative w-full h-1.5 bg-cyan-500/10 rounded-full overflow-hidden z-10">
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-emerald-400 to-cyan-400 animate-[pulse_2s_linear_infinite] blur-[1px]" />
-            </div>
-
-      {/* threat buttons */}
-      <div className="flex flex-wrap gap-3 relative z-10">
+      {/* Selection Row */}
+      <div className="flex flex-wrap gap-2 mb-8 relative z-10">
         {filteredKeys.map((key) => (
-          <button
-            key={key}
-            onClick={() => setSelected(key)}
-            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-              selected === key
-                ? "bg-[var(--accent)]/30 border-[var(--accent)]/50 text-[var(--accent)]"
-                : "bg-black/20 border-[var(--accent)]/10 text-slate-400 hover:bg-[var(--accent)]/10"
-            }`}
-          >
+          <button key={key} onClick={() => setSelected(key)}
+            className={`px-3 py-1.5 rounded border text-[10px] font-mono transition-all ${selected === key ? "bg-cyan-500/20 border-cyan-500 text-cyan-400" : "bg-black/20 border-slate-800 text-slate-500 hover:text-slate-300"}`}>
             {key}
           </button>
         ))}
       </div>
 
-      {/* main card */}
-      <Tilt tiltMaxAngleX={6} tiltMaxAngleY={6} scale={1.02} transitionSpeed={1000}>
-        <motion.div
-          className="relative p-6 rounded-2xl border border-[var(--accent)]/30 bg-gradient-to-br from-[var(--accent)]/15 to-black/60 shadow-[0_0_25px_var(--accent)_0.15] cursor-grab overflow-hidden"
-          whileTap={{ cursor: "grabbing" }}
-        >
-          {threat.image && (
-            <motion.img
-              src={threat.image}
-              alt={threat.title}
-              className="absolute top-0 right-0 opacity-8 w-full h-full object-cover pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.06 }}
-            />
-          )}
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-3">
-              {threat.icon}
-              <div>
-                <h3 className="text-xl font-semibold text-[var(--accent)]">{threat.title}</h3>
-                <p className="text-slate-400 text-sm italic">{(threat.desc?.split(". ").slice(0, 2).join(". ") || "No description available.") + "."}</p>
+      {/* Main Analysis Terminal */}
+      <Tilt tiltMaxAngleX={3} tiltMaxAngleY={3} scale={1.01}>
+        <div className="bg-black/40 border border-slate-800 rounded-xl p-6 mb-6 relative overflow-hidden backdrop-blur-sm">
+           <div className="absolute top-0 right-0 p-4 opacity-2">{threat.icon}</div>
+           <div className="flex flex-col md:flex-row gap-8 items-center">
+              <div className="w-32 h-32 flex-shrink-0">
+                <CircularProgressbar 
+                  value={threat.risk === "High" ? 90 : threat.risk === "Medium" ? 65 : 35} 
+                  text={threat.risk} 
+                  styles={buildStyles({ pathColor: "#06b6d4", textColor: "#06b6d4", trailColor: "#1e293b", textSize: '16px' })} 
+                />
               </div>
-            </div>
-
-            <div className="w-24 h-24 mx-auto my-4">
-              <CircularProgressbar
-                value={threat.risk === "High" ? 90 : threat.risk === "Medium" ? 65 : 35}
-                text={threat.risk}
-                styles={buildStyles({
-                  pathColor: "var(--accent)",
-                  textColor: "var(--accent)",
-                  trailColor: "#111",
-                })}
-              />
-            </div>
-
-            {/* optional small chart (only for CICIDS to show class counts) */}
-            {mode === "cicids" && (
-              <div className="mt-4">
-                <ResponsiveContainer width="100%" height={110}>
-                  <BarChart data={chartData}>
-                    <XAxis dataKey="name" stroke="var(--accent)" />
-                    <YAxis hide />
-                    <Bar dataKey="value" fill="var(--accent)" radius={[6,6,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-center text-slate-400 text-sm mt-2">Top CICIDS counts (sample)</p>
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">{threat.title}</h2>
+                <p className="text-slate-400 leading-relaxed text-sm md:text-base border-l-2 border-cyan-500/30 pl-4">
+                  {threat.desc}
+                </p>
+                <div className="mt-4 inline-block px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">
+                  Intelligence Source: {threat.usage}
+                </div>
               </div>
-            )}
-
-            <p className="text-center text-slate-400 text-sm mt-2">{threat.usage}</p>
-          </div>
-        </motion.div>
+           </div>
+        </div>
       </Tilt>
 
-      {/* comparison + details */}
-      <motion.div layout className="grid md:grid-cols-2 gap-6 mt-4 relative z-10" transition={{ duration: 0.3 }}>
-        <motion.div className="p-4 bg-black/40 rounded-xl border border-[var(--accent)]/20">
-          <h4 className="text-[var(--accent)] font-semibold mb-2">{threat.title}</h4>
-          <p className="text-slate-400 text-sm">{threat.desc}</p>
-        </motion.div>
-
-        <motion.div className="p-4 bg-black/40 rounded-xl border border-[var(--accent)]/20">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="text-[var(--accent)] font-semibold mr-auto">Compare</h4>
-            <select
-              value={compare}
-              onChange={(e) => setCompare(e.target.value)}
-              className="bg-black/40 border border-[var(--accent)]/20 px-3 py-1 rounded-lg text-sm text-[var(--accent)] outline-none"
-            >
-              {keys.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
+      {/* Bottom Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+        <div className="bg-black/40 border border-slate-800 rounded-xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Shield size={14}/> Compare Module</h4>
+            <select value={compare} onChange={(e) => setCompare(e.target.value)} className="bg-slate-900 border border-slate-800 px-2 py-1 rounded text-[10px] text-cyan-400">
+              {keys.map((k) => <option key={k} value={k}>{k}</option>)}
             </select>
-            <button
-              className="ml-3 px-3 py-1 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-lg text-[var(--accent)] text-sm"
-              onClick={() => navigate(`/flow?type=${encodeURIComponent(compare)}`)}
-            >
-              Flow
-            </button>
           </div>
-
-          <h5 className="text-sm text-[var(--accent)] mb-1">{compareThreat.title}</h5>
-          <p className="text-slate-400 text-sm">{compareThreat.desc}</p>
-        </motion.div>
-      </motion.div>
-
-      {/* quiz */}
-      <div className="mt-6 bg-black/40 border border-[var(--accent)]/20 rounded-xl p-4 relative z-10">
-        <h4 className="text-[var(--accent)] font-semibold mb-2">🎯 Analyst Quiz</h4>
-        <p className="text-slate-400 text-sm mb-3">{(quizQuestions[selected] && quizQuestions[selected].question) || "No question for this class."}</p>
-
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Your answer..."
-            value={quizAnswer}
-            onChange={(e) => setQuizAnswer(e.target.value)}
-            className="flex-1 bg-black/40 border border-[var(--accent)]/20 rounded-lg px-3 py-2 text-[var(--accent)] text-sm outline-none"
-          />
-          <button
-            onClick={handleQuizSubmit}
-            className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded-lg hover:bg-[var(--accent)]/30 text-[var(--accent)] text-sm"
-          >
-            Submit
-          </button>
+          <h5 className="text-cyan-400 font-bold mb-1">{compareThreat.title}</h5>
+          <p className="text-slate-500 text-xs leading-relaxed">{compareThreat.desc?.substring(0, 180)}...</p>
         </div>
 
-        <AnimatePresence>
-          {showQuizResult !== null && (
-            <motion.p
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className={`mt-3 font-semibold ${showQuizResult.correct ? "text-emerald-400" : "text-rose-400"}`}
-            >
-              {showQuizResult.correct ? "✅ Correct!" : `❌ Incorrect! Correct answer: ${quizQuestions[selected]?.answer || "—"}`}
-            </motion.p>
-          )}
-        </AnimatePresence>
+        <div className="bg-gradient-to-br from-cyan-900/20 to-black/40 border border-cyan-500/20 rounded-xl p-6 shadow-[inset_0_0_20px_rgba(0,229,255,0.05)]">
+          <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="fill-cyan-400" /> Analyst Verification</h4>
+          <p className="text-slate-300 text-sm mb-4 italic">"{(quizQuestions[selected] && quizQuestions[selected].question) || "Select a threat to begin verification."}"</p>
+          <div className="flex gap-2">
+            <input type="text" placeholder="Enter response..." value={quizAnswer} onChange={(e) => setQuizAnswer(e.target.value)} className="flex-1 bg-black/60 border border-slate-800 rounded px-4 py-2 text-sm text-cyan-400 focus:border-cyan-500/50 outline-none" />
+            <button onClick={handleQuizSubmit} className="px-6 py-2 bg-cyan-500 text-black font-bold rounded text-xs uppercase hover:bg-cyan-400 transition-colors">Verify</button>
+          </div>
+          <AnimatePresence>
+            {showQuizResult !== null && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} 
+                className={`mt-4 text-center py-2 rounded text-[10px] font-bold tracking-widest uppercase border ${showQuizResult.correct ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400" : "bg-rose-500/10 border-rose-500/50 text-rose-400"}`}>
+                {showQuizResult.correct ? "Identity Confirmed: Access Granted" : `Access Denied: Required Key "${quizQuestions[selected]?.answer}"`}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-      <ChatAssistant />
+      
+      <div className="mt-12 opacity-50"><ChatAssistant /></div>
     </div>
   );
 }
+
+

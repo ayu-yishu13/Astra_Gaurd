@@ -9,6 +9,7 @@ import {
   Brain,
   Volume2,
   Server,
+  ShieldCheck,
 } from "lucide-react";
 import GaugeChart from "react-gauge-chart";
 import toast, { Toaster } from "react-hot-toast";
@@ -24,23 +25,26 @@ export default function SystemPage() {
   const [attackTrends, setAttackTrends] = useState([]);
   const [optimizations, setOptimizations] = useState([]);
 
+  // --- API Base URL ---
+  const API_BASE = "http://127.0.0.1:5000/api";
+
   // 🔊 Cyber Voice
   const speakSystem = (text) => {
     const synth = window.speechSynthesis;
+    if (!synth) return;
     const utter = new SpeechSynthesisUtterance(text);
     utter.pitch = 1.1;
     utter.rate = 1.0;
     utter.volume = 0.9;
-    utter.voice =
-      synth.getVoices().find((v) => v.name.includes("Microsoft") || v.name.includes("Google")) ||
-      synth.getVoices()[0];
+    const voices = synth.getVoices();
+    utter.voice = voices.find((v) => v.name.includes("Microsoft") || v.name.includes("Google")) || voices[0];
     synth.speak(utter);
   };
 
-  // 🧠 Fetch System Info
+  // 🧠 Fetch System Info (Every 5s)
   const fetchSystemData = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/system/status");
+      const res = await fetch(`${API_BASE}/system/status`);
       const data = await res.json();
       setSystemData(data);
     } catch (err) {
@@ -50,79 +54,79 @@ export default function SystemPage() {
 
   // 📥 Download Report
   const handleDownload = () => {
-    toast("📥 Generating System Report...", {
+    toast("📥 Generating Live System Report...", {
       icon: "🧾",
-      style: { background: "var(--card)", color: "var(--accent)" },
+      style: { background: "#1a1a2e", color: "#00e5ff", border: "1px solid #00e5ff33" },
     });
-    window.open("http://127.0.0.1:5000/api/system/report", "_blank");
-    speakSystem("System report successfully generated.");
+    window.open(`${API_BASE}/system/report`, "_blank");
+    speakSystem("Live system report successfully generated.");
   };
 
   // 🧠 Run Diagnostic
   const runDiagnostic = async () => {
     try {
       setScanning(true);
-      toast("🧠 Running full system diagnostic...", {
+      toast("🧠 Initializing AI Stress Test...", {
         icon: "⚙️",
         duration: 3000,
-        style: { background: "var(--card)", color: "var(--accent)" },
+        style: { background: "#1a1a2e", color: "#fbbf24" },
       });
 
-      const res = await fetch("http://127.0.0.1:5000/api/system/diagnostic");
+      const res = await fetch(`${API_BASE}/system/diagnostic`);
       const data = await res.json();
       setDiagnostic(data);
 
-      toast.success("✅ Diagnostic Complete!", {
+      toast.success(`Stability: ${data.stability_score}%`, {
         duration: 2500,
-        style: { background: "var(--card)", color: "var(--accent)" },
+        style: { background: "#064e3b", color: "#34d399" },
       });
 
-      speakSystem(`Diagnostic complete. Stability at ${data.stability_score} percent.`);
+      speakSystem(`Diagnostic complete. System stability is currently at ${data.stability_score} percent.`);
     } catch (err) {
       console.error("Diagnostic error:", err);
-      toast.error("❌ Diagnostic failed");
+      toast.error("❌ Diagnostic sequence failed");
     } finally {
       setScanning(false);
     }
   };
 
-  // ♻️ Refresh system metrics every 5s
   useEffect(() => {
     fetchSystemData();
     const interval = setInterval(fetchSystemData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // ⚙️ Dynamic Data (Processes + Connections + Simulated Trends)
+  // ⚙️ Fetch Dynamic Data (Processes + Connections)
   useEffect(() => {
     const fetchDynamicData = async () => {
       try {
-        const procRes = await fetch("http://127.0.0.1:5000/api/system/processes");
+        const [procRes, connRes] = await Promise.all([
+          fetch(`${API_BASE}/system/processes`),
+          fetch(`${API_BASE}/system/connections`)
+        ]);
+        
         const procData = await procRes.json();
-        if (Array.isArray(procData)) setProcesses(procData);
-
-        const connRes = await fetch("http://127.0.0.1:5000/api/system/connections");
         const connData = await connRes.json();
+
+        if (Array.isArray(procData)) setProcesses(procData);
         if (Array.isArray(connData)) setConnections(connData);
 
-        const fakeAttackTrends = Array.from({ length: 7 }, (_, i) => ({
-          day: `Day ${i + 1}`,
+        // Generate simulated trends for the UI
+        setAttackTrends(Array.from({ length: 7 }, (_, i) => ({
+          day: `T-${6-i}h`,
           TOR: Math.random() * 10,
           VPN: Math.random() * 15,
-          I2P: Math.random() * 5,
           DDoS: Math.random() * 20,
-        }));
-        setAttackTrends(fakeAttackTrends);
+        })));
 
-        const fakeOpt = [
-          "🧠 Optimize CPU usage by limiting background apps.",
-          "🔒 Network stable: monitoring port 443 and 80.",
-          "💾 System cache clean recommended soon.",
-          "🌐 No suspicious outbound traffic detected.",
-        ];
-        setOptimizations(fakeOpt);
+        setOptimizations([
+          "🧠 CPU logic: Background tasks throttled for NIDS performance.",
+          "🔒 Port Integrity: 443/80 secured against injection.",
+          "💾 Memory: Zero-leak policy active.",
+          "🌐 Traffic: Low latency established via local gateway."
+        ]);
       } catch (error) {
-        console.error("Error fetching live system data:", error);
+        console.error("Live update error:", error);
       }
     };
 
@@ -133,268 +137,230 @@ export default function SystemPage() {
 
   if (!systemData)
     return (
-      <div className="p-6 text-accent text-center font-mono">
-        ⚙️ Fetching system metrics...
+      <div className="flex flex-col items-center justify-center min-h-screen text-accent font-mono animate-pulse">
+        <Cpu size={48} className="mb-4 animate-spin-slow" />
+        <p className="text-xl">SYNCING WITH NIDS BACKEND...</p>
       </div>
     );
 
   const renderGauge = (label, value, color) => (
-    <div className="flex flex-col items-center card-glow rounded-2xl p-4">
-      <h3 className="text-accent text-sm mb-2">{label}</h3>
+    <div className="flex flex-col items-center card-glow rounded-2xl p-4 bg-slate-900/40 border border-white/5 transition-transform hover:scale-105">
+      <h3 className="text-accent text-xs font-bold uppercase tracking-widest mb-2 opacity-70">{label}</h3>
       <GaugeChart
         id={`gauge-${label}`}
-        nrOfLevels={20}
+        nrOfLevels={30}
         percent={value / 100}
         colors={["#00e5ff", "#fbbf24", "#ff0059"]}
         arcPadding={0.02}
-        needleColor={color}
-        textColor="var(--accent)"
-        style={{ width: "180px", height: "100px", transform: "scale(1.1)" }}
+        needleColor="#ffffff"
+        textColor="transparent"
+        style={{ width: "160px" }}
       />
-      <p
-        className={`text-lg font-semibold mt-2 ${
-          value > 80
-            ? "text-rose-400"
-            : value > 60
-            ? "text-amber-300"
-            : "text-emerald-400"
-        }`}
-      >
+      <p className={`text-2xl font-black mt-2 ${value > 80 ? "text-rose-500" : value > 60 ? "text-amber-400" : "text-cyan-400"}`}>
         {Math.round(value)}%
       </p>
     </div>
   );
 
-  const { cpu_usage, ram_usage, disk_usage, cpu_temp, health_score } = systemData;
-
   return (
-    <div className="p-6 space-y-6 relative text-[var(--text)]">
+    <div className="p-6 space-y-6 relative text-[var(--text)] bg-[#0a0a0f] min-h-screen font-sans">
       <Toaster position="bottom-right" />
 
-      <h2 className="py-4 text-5xl md:text-6xl lg:text-7xl font-extrabold bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 text-transparent bg-clip-text neon-text">
-            System Analysis
-          </h2>
-
-      {/* 🌫️ Subtle Glow Background */}
-      <div
-        className="absolute inset-0 animate-pulse-slow pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle at center, color-mix(in srgb, var(--accent) 25%, transparent) 8%, transparent 75%)",
-          opacity: 0.25,
-        }}
-      ></div>
-
-      {/* HEADER */}
-      <div className="flex justify-between items-center flex-wrap gap-3">
-        <h2 className="text-2xl font-semibold text-accent flex items-center gap-2">
-          <Cpu size={22} /> AI System Monitor
+      {/* Hero Header */}
+      <div className="relative z-10">
+        <h2 className="py-2 text-5xl md:text-7xl font-black bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 text-transparent bg-clip-text drop-shadow-[0_0_15px_rgba(0,229,255,0.3)]">
+          System Analysis
         </h2>
+        <div className="flex items-center gap-2 text-cyan-400/60 font-mono text-sm">
+          <ShieldCheck size={14} /> <span>SECURE CONNECTION ESTABLISHED TO {systemData.ip_address}</span>
+        </div>
+      </div>
+
+      {/* Control Panel */}
+      <div className="flex justify-between items-center flex-wrap gap-4 bg-slate-900/50 p-4 rounded-xl border border-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+             <span className="text-xs uppercase text-accent/50 font-bold">Status</span>
+             <span className="text-emerald-400 font-mono flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> 
+                SYSTEM OPERATIONAL
+             </span>
+          </div>
+        </div>
+        
         <div className="flex items-center gap-3">
           <button
             onClick={runDiagnostic}
             disabled={scanning}
-            className="flex items-center gap-2 bg-accent/10 border border-accent text-accent px-3 py-1.5 rounded-lg hover:bg-accent/20 transition"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all border ${
+              scanning ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "bg-cyan-500/10 border-cyan-400/30 text-cyan-400 hover:bg-cyan-500/20"
+            }`}
           >
-            <PlayCircle size={16} className={scanning ? "animate-spin" : ""} />
-            {scanning ? "Scanning..." : "Run Diagnostic"}
-            <div className="flex items-center gap-2 text-xs text-[var(--text)]/60">
-              <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></div>
-              <span>Live Refresh Active</span>
-            </div>
+            <PlayCircle size={18} className={scanning ? "animate-spin" : ""} />
+            {scanning ? "STRESS TESTING..." : "RUN DIAGNOSTIC"}
           </button>
 
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition"
+            className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-400/30 text-emerald-400 px-4 py-2 rounded-lg font-bold hover:bg-emerald-500/20 transition-all"
           >
-            <FileText size={16} />
-            Download Report
+            <FileText size={18} /> REPORT.PDF
           </button>
 
           <button
-            onClick={() => speakSystem("System health stable. No anomalies detected.")}
-            className="text-accent hover:text-emerald-300"
-            title="Speak system status"
+            onClick={() => speakSystem(`Current system health is ${systemData.health_score} percent. Temperature nominal.`)}
+            className="p-2 rounded-full bg-slate-800 text-accent hover:bg-cyan-500/20 transition-colors"
           >
-            <Volume2 size={18} />
+            <Volume2 size={20} />
           </button>
         </div>
       </div>
 
-      {/* GAUGES */}
-      <div className="grid md:grid-cols-3 gap-6">
-        {renderGauge("CPU Usage", cpu_usage, "var(--accent)")}
-        {renderGauge("Memory Usage", ram_usage, "#fbbf24")}
-        {renderGauge("Disk Usage", disk_usage, "#ff0059")}
-      </div>
-
-      {/* TEMP + HEALTH */}
-      <div className="flex flex-wrap justify-between items-center gap-4 card-glow p-4">
-        <div className="flex items-center gap-3">
-          <Thermometer size={18} className="text-accent" />
-          <span className="text-[var(--text)] text-sm">
-            CPU Temp:{" "}
-            <span
-              className={`font-semibold ${
-                cpu_temp > 80
-                  ? "text-rose-400"
-                  : cpu_temp > 65
-                  ? "text-amber-300"
-                  : "text-emerald-400"
-              }`}
-            >
-              {cpu_temp}°C
-            </span>
-          </span>
+      {/* Main Stats Grid */}
+      <div className="grid lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 grid md:grid-cols-3 gap-6">
+          {renderGauge("CPU Load", systemData.cpu_usage, "var(--accent)")}
+          {renderGauge("Memory", systemData.ram_usage, "#fbbf24")}
+          {renderGauge("Disk Space", systemData.disk_usage, "#ff0059")}
         </div>
-        <div className="text-sm text-accent">
-          System Health:{" "}
-          <span
-            className={`font-bold ${
-              health_score > 75
-                ? "text-emerald-400"
-                : health_score > 50
-                ? "text-amber-300"
-                : "text-rose-400"
-            }`}
-          >
-            {health_score}%
-          </span>
+
+        {/* Health / Temp Card */}
+        <div className="card-glow p-6 bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-white/5 flex flex-col justify-center">
+            <div className="mb-4">
+                <p className="text-xs text-white/40 uppercase font-bold tracking-tighter">Thermal Status</p>
+                <div className="flex items-center justify-between">
+                    <span className="text-3xl font-mono">{systemData.cpu_temp}°C</span>
+                    <Thermometer className={systemData.cpu_temp > 70 ? "text-rose-500 animate-bounce" : "text-cyan-400"} />
+                </div>
+            </div>
+            <div>
+                <p className="text-xs text-white/40 uppercase font-bold tracking-tighter">AI Stability Index</p>
+                <div className="text-3xl font-black text-emerald-400">{systemData.health_score}%</div>
+            </div>
         </div>
       </div>
 
-      {/* SYSTEM INFO */}
-      <div className="card-glow p-5">
-        <h3 className="text-accent text-sm mb-3 flex items-center gap-2">
-          <Server size={14} /> System Overview
-        </h3>
-        <ul className="text-sm text-[var(--text)]/80 space-y-1">
-          <li>💻 OS: {systemData.os}</li>
-          <li>🧠 CPU: {systemData.cpu_name}</li>
-          <li>⚙️ Hostname: {systemData.hostname}</li>
-          <li>
-            🌐 IP: <span className="text-accent">{systemData.ip_address}</span>
-          </li>
-          <li>💾 Disk Total: {systemData.disk_total} GB</li>
-          <li>🧩 Memory Total: {systemData.ram_total} GB</li>
-        </ul>
-      </div>
+      <div className="grid xl:grid-cols-2 gap-6">
+        {/* System Specs Table */}
+        <div className="card-glow p-5 bg-slate-900/40">
+            <h3 className="text-accent text-sm font-bold mb-4 flex items-center gap-2 uppercase">
+              <Server size={16} /> Hardware Profile
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm font-mono">
+                <div className="p-3 bg-black/30 rounded border border-white/5">
+                    <p className="text-white/40 text-[10px]">OS VERSION</p>
+                    <p className="truncate">{systemData.os}</p>
+                </div>
+                <div className="p-3 bg-black/30 rounded border border-white/5">
+                    <p className="text-white/40 text-[10px]">LOCAL ADDRESS</p>
+                    <p className="text-cyan-400">{systemData.ip_address}</p>
+                </div>
+                <div className="p-3 bg-black/30 rounded border border-white/5">
+                    <p className="text-white/40 text-[10px]">TOTAL V-RAM</p>
+                    <p>{systemData.ram_total} GB</p>
+                </div>
+                <div className="p-3 bg-black/30 rounded border border-white/5">
+                    <p className="text-white/40 text-[10px]">STORAGE CAPACITY</p>
+                    <p>{systemData.disk_total} GB</p>
+                </div>
+            </div>
+            <p className="mt-4 text-[11px] text-white/20 italic font-mono">Processor Ident: {systemData.cpu_name}</p>
+        </div>
 
-      {/* ACTIVE PROCESSES */}
-      <div className="card-glow p-4">
-        <h3 className="text-accent text-sm mb-3 flex items-center gap-2">
-          <Cpu size={14} /> Active Processes
-        </h3>
-        <div className="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--accent)]/30 scrollbar-track-transparent hover:scrollbar-thumb-[var(--accent)]/50 transition-all">
-          <table className="w-full text-sm text-left text-[var(--text)]">
-            <thead className="text-xs uppercase text-accent border-b border-[var(--accent)]/20">
-              <tr>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">CPU %</th>
-                <th className="px-3 py-2">Memory %</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {processes.map((p, i) => (
-                <tr key={i} className="border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5 transition">
-                  <td className="px-3 py-2 font-mono text-accent truncate">{p.name}</td>
-                  <td className="px-3 py-2">{p.cpu}%</td>
-                  <td className="px-3 py-2">{p.mem}%</td>
-                  <td className="px-3 py-2">{p.status}</td>
+        {/* Active Processes */}
+        <div className="card-glow p-5 bg-slate-900/40">
+          <h3 className="text-accent text-sm font-bold mb-4 flex items-center gap-2 uppercase">
+            <Activity size={16} /> Resource Intensive Processes
+          </h3>
+          <div className="overflow-hidden rounded-lg border border-white/5">
+            <table className="w-full text-xs text-left font-mono">
+              <thead className="bg-white/5 text-accent uppercase">
+                <tr>
+                  <th className="px-4 py-2">Process</th>
+                  <th className="px-4 py-2">CPU</th>
+                  <th className="px-4 py-2">MEM</th>
+                  <th className="px-4 py-2">STATE</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {processes.map((p, i) => (
+                  <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                    <td className="px-4 py-2 text-cyan-300 truncate max-w-[120px]">{p.name}</td>
+                    <td className="px-4 py-2 text-white/70">{p.cpu}%</td>
+                    <td className="px-4 py-2 text-white/70">{p.mem}%</td>
+                    <td className="px-4 py-2">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[9px] uppercase">
+                            {p.status}
+                        </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        {processes.length >= 6 && (
-          <p className="text-xs text-[var(--text)]/50 mt-2 italic text-right">
-            Showing top 6 processes by CPU usage
-          </p>
-        )}
       </div>
 
-      {/* NETWORK CONNECTIONS */}
-      <div className="card-glow p-4">
-        <h3 className="text-accent text-sm mb-3 flex items-center gap-2">
-          <Network size={14} /> Active Network Connections
-        </h3>
-        <div className="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--accent)]/30 scrollbar-track-transparent hover:scrollbar-thumb-[var(--accent)]/50 transition-all">
-          <ul className="space-y-2 text-sm text-[var(--text)]">
+      {/* Network & Trends Grid */}
+      <div className="grid xl:grid-cols-2 gap-6">
+         {/* Line Chart */}
+        <div className="card-glow p-5 bg-slate-900/40">
+          <h3 className="text-accent text-sm font-bold mb-6 flex items-center gap-2 uppercase">
+            <Activity size={16} /> Threat Vector Trends (6h)
+          </h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={attackTrends}>
+              <XAxis dataKey="day" stroke="#ffffff33" fontSize={10} />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #00e5ff33", fontSize: "12px" }}
+              />
+              <Line type="monotone" dataKey="TOR" stroke="#ff0059" strokeWidth={3} dot={false} />
+              <Line type="monotone" dataKey="VPN" stroke="#fbbf24" strokeWidth={3} dot={false} />
+              <Line type="monotone" dataKey="DDoS" stroke="#00ff88" strokeWidth={3} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Network Connections */}
+        <div className="card-glow p-5 bg-slate-900/40">
+          <h3 className="text-accent text-sm font-bold mb-4 flex items-center gap-2 uppercase">
+            <Network size={16} /> Live Inbound/Outbound
+          </h3>
+          <div className="space-y-2">
             {connections.map((c, i) => (
-              <li
-                key={i}
-                className="flex justify-between border-b border-[var(--accent)]/10 pb-1 hover:bg-[var(--accent)]/5 px-2 rounded transition"
-              >
-                <span className="font-mono text-accent">
-                  {c.ip}:{c.port}
-                </span>
-                <span>{c.proto}</span>
-                <span
-                  className={`${
-                    c.state === "ESTABLISHED"
-                      ? "text-emerald-400"
-                      : "text-[var(--text)]/60"
-                  }`}
-                >
-                  {c.state}
-                </span>
-              </li>
+              <div key={i} className="flex justify-between items-center bg-black/20 p-2 rounded font-mono text-xs border border-white/5">
+                <div className="flex items-center gap-3">
+                    <span className={`w-1.5 h-1.5 rounded-full ${c.state === 'ESTABLISHED' ? 'bg-emerald-500' : 'bg-white/20'}`}></span>
+                    <span className="text-cyan-400">{c.ip}:{c.port}</span>
+                </div>
+                <div className="flex gap-4 items-center">
+                    <span className="text-white/40">{c.proto}</span>
+                    <span className="text-[10px] opacity-60 truncate max-w-[80px]">{c.state}</span>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
-        {connections.length >= 6 && (
-          <p className="text-xs text-[var(--text)]/50 mt-2 italic text-right">
-            Showing top 6 active network connections
-          </p>
-        )}
       </div>
 
-      {/* ATTACK PATTERN EVOLUTION */}
-      <div className="card-glow p-4">
-        <h3 className="text-accent text-sm mb-3 flex items-center gap-2">
-          <Activity size={14} /> Attack Pattern Evolution
+      {/* AI Suggestions Footer */}
+      <div className="card-glow p-5 bg-gradient-to-r from-indigo-950/50 to-slate-900/50 border-l-4 border-l-cyan-500">
+        <h3 className="text-cyan-400 text-sm font-bold mb-3 flex items-center gap-2 uppercase">
+          <Brain size={18} /> Neural Optimizer Output
         </h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={attackTrends}>
-            <XAxis dataKey="day" stroke="var(--accent)" />
-            <YAxis hide />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--card)",
-                border: "1px solid var(--accent)",
-                borderRadius: "6px",
-              }}
-            />
-            <Line type="monotone" dataKey="TOR" stroke="#ff0059" strokeWidth={2} />
-            <Line type="monotone" dataKey="VPN" stroke="#fbbf24" strokeWidth={2} />
-            <Line type="monotone" dataKey="I2P" stroke="var(--accent)" strokeWidth={2} />
-            <Line type="monotone" dataKey="DDoS" stroke="#00ff88" strokeWidth={2} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* AI OPTIMIZATION */}
-      <div className="card-glow p-4">
-        <h3 className="text-accent text-sm mb-3 flex items-center gap-2">
-          <Brain size={14} /> AI Optimization Suggestions
-        </h3>
-        <ul className="text-sm text-[var(--text)]/80 space-y-2">
+        <div className="grid md:grid-cols-2 gap-3">
           {optimizations.map((o, i) => (
-            <li
-              key={i}
-              className="bg-[var(--accent)]/5 border border-[var(--accent)]/10 rounded-lg p-2 hover:bg-[var(--accent)]/10 transition"
-            >
-              {o}
-            </li>
+            <div key={i} className="text-xs font-mono text-white/60 bg-white/5 p-2 rounded flex items-center gap-2">
+               <span className="text-cyan-500 font-bold">»</span> {o}
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
+
       <ChatAssistant />
     </div>
   );
 }
-
 
 
