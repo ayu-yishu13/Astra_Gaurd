@@ -100,7 +100,7 @@ def home():
 
 if __name__ == "__main__":
     # Use port 7860 if on HF, otherwise use 5000
-    port = int(os.environ.get("PORT", 5000)) 
+    port = int(os.environ.get("PORT", 7860)) 
     print(f"🚀 Starting Backend on port {port}...")
     socketio.run(app, host="0.0.0.0", port=port, debug=False)
 
