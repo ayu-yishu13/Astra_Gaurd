@@ -44,7 +44,7 @@ desktop.ini
 # Since you'll deploy the frontend separately to Vercel
 frontend/
 node_modules/
-dist/
+
 build/
 
 # --- Logs & Reports ---
@@ -57,5 +57,3 @@ backend/reporting/*.csv
 
 # Fonts and Media
 backend/reporting/*.ttf
-frontend/public/*.mp3
-frontend/src/assests/*.png
