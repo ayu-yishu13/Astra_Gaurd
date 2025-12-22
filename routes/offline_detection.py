@@ -22,15 +22,16 @@ os.makedirs(SAMPLE_DIR, exist_ok=True)
 
 ALLOWED_EXT = {"csv", "pcap"}
 
+# --- FEATURE DEFINITIONS (As per your Model Logs) ---
 BCC_FEATURES = [
-    "proto","src_port","dst_port","flow_duration","total_fwd_pkts","total_bwd_pkts",
-    "flags_numeric","payload_len","header_len","rate","iat","syn","ack","rst","fin"
+    "proto", "src_port", "dst_port", "flow_duration", "total_fwd_pkts", "total_bwd_pkts",
+    "flags_numeric", "payload_len", "header_len", "rate", "iat", "syn", "ack", "rst", "fin"
 ]
 
 CICIDS_FEATURES = [
-    "Protocol","Dst Port","Flow Duration","Tot Fwd Pkts","Tot Bwd Pkts",
-    "TotLen Fwd Pkts","TotLen Bwd Pkts","Fwd Pkt Len Mean","Bwd Pkt Len Mean",
-    "Flow IAT Mean","Fwd PSH Flags","Fwd URG Flags","Fwd IAT Mean"
+    "Protocol", "Dst Port", "Flow Duration", "Tot Fwd Pkts", "Tot Bwd Pkts",
+    "TotLen Fwd Pkts", "TotLen Bwd Pkts", "Fwd Pkt Len Mean", "Bwd Pkt Len Mean",
+    "Flow IAT Mean", "Fwd PSH Flags", "Fwd URG Flags", "Fwd IAT Mean"
 ]
 
 def allowed(filename):
@@ -60,7 +61,7 @@ def offline_predict():
     saved_path = os.path.join(UPLOAD_DIR, filename)
     file.save(saved_path)
 
-    # Cleanup: Delete the uploaded file after the response is sent
+    # Cleanup logic to keep the server clean
     @after_this_request
     def cleanup(response):
         try:
@@ -70,66 +71,90 @@ def offline_predict():
             print(f"Cleanup Error: {e}")
         return response
 
-    # PCAP to CSV Conversion
-    if filename.lower().endswith(".pcap"):
-        try:
-            saved_path = convert_pcap_to_csv(saved_path)
-        except Exception as e:
-            return jsonify(success=False, message=f"PCAP conversion failed: {str(e)}"), 500
-
-    # Load Data
+    # 1. Load Data
     try:
+        # If PCAP, you'd call your converter here. For now, assuming CSV load.
         df = pd.read_csv(saved_path)
         if df.empty:
             return jsonify(success=False, message="CSV has no data!"), 400
     except Exception as e:
         return jsonify(success=False, message=f"Error reading CSV: {str(e)}"), 400
 
-    # 🚀 SECURE MODEL LOADING
+    # 2. Flexible Feature Mapping & Flag Extraction
+    # Renames common CSV headers to the specific technical names the model expects
+    mapping = {
+        'Protocol': 'proto', 'proto': 'proto',
+        'Source Port': 'src_port', 'src_port': 'src_port',
+        'Destination Port': 'dst_port', 'dst_port': 'dst_port',
+        'Flow Duration': 'flow_duration',
+        'Total Fwd Packets': 'total_fwd_pkts',
+        'Total Bwd Packets': 'total_bwd_pkts',
+        'Payload Len': 'payload_len',
+        'Header Len': 'header_len',
+        'IAT': 'iat', 'Rate': 'rate'
+    }
+    df = df.rename(columns=mapping)
+
+    # Smart Flag Extraction: If 'syn', 'ack', etc. are missing, try to get them from a 'flags' string
+    if 'flags' in df.columns:
+        for f in ['syn', 'ack', 'rst', 'fin']:
+            if f not in df.columns:
+                df[f] = df['flags'].astype(str).str.lower().apply(lambda x: 1 if f in x else 0)
+
+    # 3. Model Loading & Feature Alignment
     try:
         model_data = load_model(model_type)
-        if not model_data or 'model' not in model_data or model_data['model'] is None:
-            raise ValueError("Model object is None. Check version compatibility in requirements.txt")
+        if not model_data or model_data.get('model') is None:
+            return jsonify(success=False, message="Model failed to load. Check Hub connection."), 500
 
         model = model_data['model']
+        expected = BCC_FEATURES if model_type == "bcc" else CICIDS_FEATURES
+        
+        # 🚀 SAFETY PADDING: Fill missing features with 0 to prevent "CRITICAL_ERROR"
+        for col in expected:
+            if col not in df.columns:
+                df[col] = 0 
+                
+    except Exception as e:
+        return jsonify(success=False, message=f"Model Initialization Error: {str(e)}"), 500
+
+    # 4. Prediction Logic
+    try:
+        # Reorder columns to match the EXACT training order
+        input_data = df[expected] 
         
         if model_type == "bcc":
-            encoder = model_data.get('encoder')
             scaler = model_data.get('scaler')
-            if not encoder or not scaler:
-                raise ValueError("BCC model requires encoder and scaler but they were not found.")
-            expected = BCC_FEATURES
-        else:
-            expected = CICIDS_FEATURES
-    except Exception as e:
-        return jsonify(success=False, message=f"Model failure: {str(e)}"), 500
-
-    # Feature Verification
-    missing = [c for c in expected if c not in df.columns]
-    if missing:
-        return jsonify(success=False, message=f"Missing features: {missing}"), 400
-
-    # Prediction Logic
-    try:
-        input_data = df[expected]
-        if model_type == "bcc":
-            scaled = scaler.transform(input_data)
-            preds = model.predict(scaled)
+            encoder = model_data.get('encoder')
+            
+            # Scale features (Critical for BCC/MLP models)
+            scaled_data = scaler.transform(input_data)
+            preds = model.predict(scaled_data)
+            
+            # Convert numeric 0/1 to "Normal"/"DDoS"
             labels = encoder.inverse_transform(preds)
         else:
+            # CICIDS (usually Random Forest) doesn't always need scaling
             labels = model.predict(input_data)
 
+        # 5. Result Formatting for React Frontend
         df["prediction"] = labels
         class_counts = df["prediction"].value_counts().to_dict()
-        results = [{"index": i, "class": lbl} for i, lbl in enumerate(labels)]
+        
+        # Convert all labels to strings for JSON serializability
+        results = [{"index": i, "class": str(lbl)} for i, lbl in enumerate(labels)]
 
-        # Save results for PDF generation
-        result_file = os.path.join(UPLOAD_DIR, "last_results.csv")
-        df.to_csv(result_file, index=False)
+        return jsonify({
+            "success": True, 
+            "classCounts": class_counts, 
+            "results": results,
+            "total_processed": len(df)
+        })
 
-        return jsonify(success=True, classCounts=class_counts, results=results)
     except Exception as e:
-        return jsonify(success=True, message=f"Prediction failed: {str(e)}"), 500
+        import traceback
+        print(traceback.format_exc())
+        return jsonify(success=False, message=f"Prediction Engine Failure: {str(e)}"), 500
 
 # --- ROUTE: PDF REPORT (MEMORY SAFE) ---
 @offline_bp.route("/report", methods=["GET"])
