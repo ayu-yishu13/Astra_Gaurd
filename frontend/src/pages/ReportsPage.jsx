@@ -1,29 +1,14 @@
 import React, { useEffect, useState } from "react";
 import {
-  FileText,
-  Filter,
-  Download,
-  Eye,
-  Trash2,
-  RefreshCcw,
-  BarChart3,
-  Mail,
-  Send,
-  PieChart,
-  AlertTriangle,
+  FileText, Filter, Download, Eye, Trash2, RefreshCcw, 
+  BarChart3, Mail, Send, PieChart, AlertTriangle, 
+  ShieldCheck, FileSearch, Database
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import ChatAssistant from "./ChatAssistant";
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Pie,
-  PieChart as PieChartComp,
-  Cell,
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, 
+  Pie, PieChart as PieChartComp, Cell, CartesianGrid
 } from "recharts";
 
 export default function ReportsPage() {
@@ -35,26 +20,21 @@ export default function ReportsPage() {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
 
-  const COLORS = ["#00e5ff", "#00ff99", "#fbbf24", "#ff0059"];
+  const COLORS = ["#00e5ff", "#a78bfa", "#34d399", "#f43f5e"];
 
-  // 🧠 Fetch available reports
   const fetchReports = async () => {
     try {
       setLoading(true);
       const res = await fetch("http://127.0.0.1:5000/api/reports/list");
-      if (!res.ok) throw new Error("Failed to fetch reports");
       const data = await res.json();
       setReports(data);
     } catch (err) {
-      toast.error("Failed to load reports");
-      console.error("Report fetch error:", err);
+      toast.error("Failed to load Intelligence logs");
     } finally {
       setLoading(false);
     }
   };
 
-  // 📊 Fetch chart data
-// 📊 Fetch chart data
   const fetchCharts = async () => {
     try {
       const trendRes = await fetch("http://127.0.0.1:5000/api/reports/trend");
@@ -63,41 +43,26 @@ export default function ReportsPage() {
 
       const distRes = await fetch("http://127.0.0.1:5000/api/reports/distribution");
       const distData = await distRes.json();
-      // ✅ Convert object → array for PieChart
       const distArray = Object.entries(distData).map(([name, value]) => ({ name, value }));
       setReportDistribution(distArray);
-  } catch (err) {
-    console.error("Chart fetch error:", err);
-  }
-};
-
+    } catch (err) {
+      console.error("Analytics fetch error:", err);
+    }
+  };
 
   useEffect(() => {
     fetchReports();
     fetchCharts();
   }, []);
 
-  // 📥 Download report
   const handleDownload = (r) => {
-    if (!r.endpoint) {
-      toast.error("No download link found");
-      return;
-    }
+    if (!r.endpoint) return toast.error("Binary source unavailable");
     window.open(r.endpoint, "_blank");
-    toast.success(`Downloading ${r.name}`);
+    toast.success(`Exporting: ${r.name}`);
   };
 
-  // 🗑 Delete report (frontend only)
-  const handleDelete = (id) => {
-    setReports((prev) => prev.filter((r) => r.id !== id));
-    toast("🗑️ Report deleted successfully", {
-      style: { background: "#001122", color: "var(--accent)" },
-    });
-  };
-
-  // 📧 Send summary email
   const handleSendEmail = async () => {
-    if (!email.trim()) return toast.error("Enter a valid email!");
+    if (!email.trim()) return toast.error("Target address required");
     setSending(true);
     try {
       const res = await fetch("http://127.0.0.1:5000/api/reports/email", {
@@ -105,216 +70,167 @@ export default function ReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const result = await res.json();
-      if (res.ok) toast.success(result.message || `Email sent to ${email}`);
-      else toast.error(result.error || "Failed to send email");
+      if (res.ok) toast.success(`Intelligence Summary dispatched to ${email}`);
     } catch (err) {
-      toast.error("Error sending email");
-      console.error("Email send error:", err);
+      toast.error("Dispatch failure");
     } finally {
       setSending(false);
     }
   };
 
-  // Filtered list
-  const filteredReports =
-    filter === "All" ? reports : reports.filter((r) => r.type === filter);
+  const filteredReports = filter === "All" ? reports : reports.filter((r) => r.type === filter);
 
   return (
-    <div className="p-6 space-y-8 relative">
-      <Toaster position="bottom-right" />
-      {/* 🌫️ Subtle Glow Background */}
-      <div
-        className="absolute inset-0 animate-pulse-slow pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle at center, color-mix(in srgb, var(--accent) 25%, transparent) 8%, transparent 75%)",
-          opacity: 0.25,
-        }}
-      ></div>
+    <div className="p-8 space-y-8 bg-[#020617] min-h-screen text-slate-300 font-mono">
+      <Toaster position="top-center" />
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center flex-wrap gap-3">
-        <h2 className="text-2xl font-semibold text-[var(--accent)] flex items-center gap-2">
-          <FileText size={22} /> Intelligence Reports Center
-        </h2>
-        <button
-          onClick={() => {
-            fetchReports();
-            fetchCharts();
-            toast("🔁 Refreshed reports & charts", {
-              icon: "⚙️",
-              style: { background: "#001122", color: "var(--accent)" },
-            });
-          }}
-          className="flex items-center gap-2 bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] px-3 py-1.5 rounded-lg hover:bg-[var(--accent)]/20 transition"
-        >
-          <RefreshCcw size={14} /> Refresh
-        </button>
-      </div>
-
-      {/* FILTER + EMAIL SECTION */}
-      <div className="flex flex-wrap items-center justify-between bg-black/40 border border-[var(--accent)]/20 rounded-xl p-4 gap-4">
-        <div className="flex items-center gap-3 text-sm text-slate-400">
-          <Filter size={14} className="text-[var(--accent)]" />
-          <span>Filter Reports:</span>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="bg-black/30 border border-[var(--accent)]/20 rounded px-2 py-1 text-[var(--accent)]"
-          >
-            <option>All</option>
-            <option>System Health</option>
-            <option>Threat Intelligence</option>
-            <option>Network Analysis</option>
-            <option>Access Logs</option>
-          </select>
+      {/* HEADER & META DATA */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-800 pb-8">
+        <div>
+          <div className="flex items-center gap-2 text-accent text-[10px] uppercase tracking-[0.3em] mb-2 font-black">
+            <ShieldCheck size={14} /> Security Intelligence Unit
+          </div>
+          <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
+            Analytical <span className="text-slate-500">Reports</span>
+          </h1>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="email"
-            placeholder="Send summary to email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="bg-black/30 border border-[var(--accent)]/20 rounded px-3 py-1 text-[var(--accent)] placeholder-slate-500"
-          />
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:block text-right mr-4">
+            <div className="text-[10px] text-slate-500 uppercase">System_Clock</div>
+            <div className="text-xs text-white uppercase">{new Date().toLocaleTimeString()}</div>
+          </div>
           <button
-            onClick={handleSendEmail}
-            disabled={sending}
-            className="flex items-center gap-2 bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] px-3 py-1.5 rounded-lg hover:bg-[var(--accent)]/20 transition"
+            onClick={() => { fetchReports(); fetchCharts(); }}
+            className="p-3 bg-white/5 border border-white/10 rounded-full hover:bg-accent hover:text-black transition-all"
           >
-            {sending ? <Mail size={14} className="animate-pulse" /> : <Send size={14} />}
-            {sending ? "Sending..." : "Email Reports"}
+            <RefreshCcw size={18} />
           </button>
         </div>
       </div>
 
-      {/* REPORTS TABLE */}
-      <div className="bg-black/40 border border-[var(--accent)]/20 rounded-xl p-4">
-        <h3 className="text-[var(--accent)] text-sm mb-3 flex items-center gap-2">
-          <BarChart3 size={14} /> Generated Reports
-        </h3>
-        {loading ? (
-          <p className="text-center text-[var(--accent)] py-10 animate-pulse">
-            ⚙️ Loading reports...
-          </p>
-        ) : filteredReports.length === 0 ? (
-          <p className="text-center text-slate-500 py-10">
-            No reports available for this filter.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-slate-300">
-              <thead className="text-xs uppercase text-[var(--accent)] border-b border-[var(--accent)]/20">
-                <tr>
-                  <th className="px-3 py-2">Report Name</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Size</th>
-                  <th className="px-3 py-2">Date</th>
-                  <th className="px-3 py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredReports.map((r, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5 transition"
-                  >
-                    <td className="px-3 py-2 text-[var(--accent)] font-mono truncate">
-                      {r.name}
-                    </td>
-                    <td className="px-3 py-2">{r.type}</td>
-                    <td className="px-3 py-2">{r.size}</td>
-                    <td className="px-3 py-2">{r.date}</td>
-                    <td className="px-3 py-2 text-right space-x-2">
-                      <button
-                        onClick={() => handleDownload(r)}
-                        className="text-emerald-400 hover:text-emerald-300"
-                        title="Download"
-                      >
-                        <Download size={16} />
-                      </button>
-                      <button
-                        onClick={() => toast.info(`Preview not available for ${r.name}`)}
-                        className="text-cyan-400 hover:text-cyan-300"
-                        title="Preview"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="text-rose-400 hover:text-rose-300"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* QUICK ACTIONS & EMAIL UTILITY */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 flex items-center gap-4 bg-slate-900/40 p-4 rounded-xl border border-white/5">
+          <Filter size={18} className="text-accent" />
+          <div className="flex gap-2">
+            {["All", "Threat Intelligence", "Network Analysis", "System Health"].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setFilter(cat)}
+                className={`px-4 py-1.5 rounded-md text-[10px] uppercase font-bold transition-all ${
+                  filter === cat ? "bg-accent text-black" : "bg-white/5 text-slate-500 border border-white/5"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-900/40 p-4 rounded-xl border border-white/5">
+          <input
+            type="email"
+            placeholder="Analyst Email Address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-xs text-accent placeholder:text-slate-700 focus:outline-none focus:border-accent"
+          />
+          <button
+            onClick={handleSendEmail}
+            disabled={sending}
+            className="bg-accent/10 border border-accent/30 text-accent p-2 rounded-lg hover:bg-accent hover:text-black transition-all"
+          >
+            {sending ? <RefreshCcw size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
       </div>
 
-      {/* ANALYTICS CHARTS */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Threat Trend */}
-        <div className="bg-black/40 border border-[var(--accent)]/20 rounded-xl p-5">
-          <h3 className="text-[var(--accent)] text-sm mb-3 flex items-center gap-2">
-            <AlertTriangle size={14} /> Attack Trend Overview
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
+      {/* ANALYTICS PREVIEW SECTION */}
+      <div className="grid lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 bg-slate-900/20 border border-white/5 rounded-2xl p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2">
+              <AlertTriangle size={16} className="text-rose-500" /> Temporal Attack Trend
+            </h3>
+            <span className="text-[10px] text-slate-500 uppercase tracking-tighter italic">Source: CIC-IDS2018 Pipeline</span>
+          </div>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={attackTrend}>
-              <XAxis dataKey="date" stroke="var(--accent)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+              <XAxis dataKey="date" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
               <YAxis hide />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#001122",
-                  border: "1px solid var(--accent)",
-                  borderRadius: "6px",
-                }}
+                contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px", fontSize: "10px" }}
               />
-              {attackTrend.length > 0 &&
-                Object.keys(attackTrend[0])
-                  .filter((key) => key !== "date")
-                  .map((key, index) => (
-                    <Line
-                      key={index}
-                      type="monotone"
-                      dataKey={key}
-                      stroke={COLORS[index % COLORS.length]}
-                      strokeWidth={2}
-                    />
-                  ))}
+              <Line type="monotone" dataKey="value" stroke="#00e5ff" strokeWidth={3} dot={{ r: 4, fill: "#00e5ff" }} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Report Type Distribution */}
-        <div className="bg-black/40 border border-[var(--accent)]/20 rounded-xl p-5">
-          <h3 className="text-[var(--accent)] text-sm mb-3 flex items-center gap-2">
-            <PieChart size={14} /> Report Type Distribution
-          </h3>
+        <div className="lg:col-span-4 bg-slate-900/20 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-6 self-start">Categorical Weight</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChartComp>
-              <Pie
-                data={reportDistribution}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={80}
-                dataKey="value"
-              >
+              <Pie data={reportDistribution} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                 {reportDistribution.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                 ))}
               </Pie>
+              <Tooltip />
             </PieChartComp>
           </ResponsiveContainer>
+          <div className="grid grid-cols-2 gap-4 mt-4 w-full">
+            {reportDistribution.slice(0, 4).map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
+                <span className="text-[9px] uppercase text-slate-500 truncate">{item.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* DATA GRID - THE REPORTS */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2 px-2">
+          <Database size={16} className="text-accent" /> Data Repository
+        </h3>
+        
+        {loading ? (
+          <div className="h-48 flex items-center justify-center border border-dashed border-slate-800 rounded-2xl">
+            <span className="animate-pulse text-slate-600 text-xs uppercase tracking-[0.5em]">Syncing_Database...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredReports.map((r, i) => (
+              <div key={i} className="group bg-slate-900/40 border border-white/5 p-5 rounded-2xl hover:border-accent/40 transition-all">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-black/50 rounded-xl border border-white/5 text-accent">
+                    <FileSearch size={24} />
+                  </div>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleDownload(r)} className="p-2 hover:bg-emerald-500/20 text-emerald-500 rounded-md transition-colors"><Download size={16} /></button>
+                    <button className="p-2 hover:bg-rose-500/20 text-rose-500 rounded-md transition-colors"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-white font-bold text-sm truncate uppercase tracking-tight">{r.name}</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500 font-mono">{r.type}</span>
+                    <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded uppercase font-bold">{r.size}</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/5 text-[9px] text-slate-600 flex justify-between">
+                  <span>TIMESTAMP: {r.date}</span>
+                  <span className="text-emerald-500/50">SECURED_V4</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <ChatAssistant />
     </div>
   );
