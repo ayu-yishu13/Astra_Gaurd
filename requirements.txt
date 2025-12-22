@@ -7,7 +7,7 @@ eventlet==0.35.2
 Flask-Mail==0.9.1
 requests
 
-# Machine Learning & Data (Stable Versions)
+# Machine Learning & Data
 numpy<2.0.0
 pandas<2.2.0
 scikit-learn==1.5.1
@@ -15,16 +15,15 @@ imbalanced-learn==0.12.0
 lightgbm>=4.0.0
 joblib==1.4.2
 scipy
-
-lightgbm
 huggingface_hub
+packaging  # Added to support our version patch
 
 # Network & Analysis
 scapy==2.5.0
 pyshark
 psutil
 
-# Utils & AI
+# Utils
 groq
 fpdf
 matplotlib

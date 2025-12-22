@@ -3,7 +3,7 @@ import joblib
 import threading
 import traceback
 from huggingface_hub import hf_hub_download
-
+import sklearn.utils
 # --- CONFIGURATION ---
 HF_REPO_ID = "CodebaseAi/netraids-ml-models"  # Replace with your actual public repo ID
 # ---------------------
@@ -11,6 +11,15 @@ HF_REPO_ID = "CodebaseAi/netraids-ml-models"  # Replace with your actual public 
 ACTIVE_MODEL = "bcc"
 _ACTIVE_LOCK = threading.Lock()
 _MODEL_CACHE = {}
+
+# --- PATCH FOR SKLEARN 1.6+ COMPATIBILITY ---
+# This fixes the "cannot import name 'parse_version' from 'sklearn.utils'" error
+if not hasattr(sklearn.utils, 'parse_version'):
+    import packaging.version
+    def parse_version(v):
+        return packaging.version.parse(v)
+    sklearn.utils.parse_version = parse_version
+# --------------------------------------------
 
 # 1. FIXED PATH LOGIC:
 # __file__ is /app/utils/model_selector.py
@@ -57,9 +66,16 @@ def _try_load(filename):
         print(f"[model_selector] SKIP: {filename} path invalid.")
         return None
     try:
+        # Check if file size is > 0 before loading
+        if os.path.getsize(path) == 0:
+            print(f"[model_selector] ERROR: {filename} is an empty file.")
+            return None
+            
+        print(f"[model_selector] Attempting joblib.load for {filename}")
         return joblib.load(path)
     except Exception as e:
-        print(f"[model_selector] FAILED to load {filename}: {e}")
+        print(f"[model_selector] CRITICAL FAILED to load {filename}")
+        print(traceback.format_exc()) # This will show exactly why in HF logs
         return None
 
 def load_model(model_key):
