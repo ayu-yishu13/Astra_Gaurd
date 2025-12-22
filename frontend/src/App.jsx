@@ -32,7 +32,7 @@ function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false); // New state for mobile toggle
 
-  const localOnlyRoutes = ["/livetraffic", "/flow", "/system", "/traffic"];
+  const localOnlyRoutes = ["/livetraffic", "/system", "/traffic"];
   const isProtectedFeature = localOnlyRoutes.includes(location.pathname);
 
   return (
