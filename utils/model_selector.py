@@ -15,22 +15,30 @@ _ACTIVE_LOCK = threading.Lock()
 _MODEL_CACHE = {}
 
 
+# --- THE "BULLETPROOF" SKLEARN PATCH ---
+# We must do this BEFORE any other ML imports
+import sklearn.utils
 try:
-    # We reach into the sub-module to find the "hidden" function
     import sklearn.utils._column_transformer as ct_utils
-    
-    if not hasattr(sklearn.utils, '_get_column_indices'):
-        sklearn.utils._get_column_indices = ct_utils._get_column_indices
-        print("[Patch] Successfully injected _get_column_indices into sklearn.utils")
-except ImportError:
-    print("[Patch] Could not find _column_transformer sub-module, skipping...")
-# --- PATCH FOR SKLEARN 1.6+ COMPATIBILITY ---
-# This fixes the "cannot import name 'parse_version' from 'sklearn.utils'" error
+    sklearn.utils._get_column_indices = ct_utils._get_column_indices
+    print("[Patch] Successfully injected _get_column_indices")
+except Exception as e:
+    # If the above fails, we define a dummy function to stop the crash
+    def _get_column_indices(X, key):
+        from sklearn.utils._column_transformer import _get_column_indices as gci
+        return gci(X, key)
+    sklearn.utils._get_column_indices = _get_column_indices
+    print(f"[Patch] Manual injection fallback used: {e}")
+
+# Patch for parse_version
 if not hasattr(sklearn.utils, 'parse_version'):
-    import packaging.version
-    def parse_version(v):
-        return packaging.version.parse(v)
-    sklearn.utils.parse_version = parse_version
+    try:
+        from packaging import version
+        sklearn.utils.parse_version = version.parse
+        print("[Patch] Successfully injected parse_version")
+    except ImportError:
+        print("[Patch] 'packaging' library missing. Ensure it is in requirements.txt")
+# ---------------------------------------
 # --------------------------------------------
 
 # 1. FIXED PATH LOGIC:

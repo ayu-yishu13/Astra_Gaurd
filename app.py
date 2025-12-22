@@ -1,6 +1,8 @@
 import eventlet
 eventlet.monkey_patch()
 
+import utils.model_selector
+
 import logging
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -83,6 +85,16 @@ def register_blueprints(app):
             print(f"⚠️ Skipping {module_name}: {e}")
 
 register_blueprints(app)
+
+with app.app_context():
+    try:
+        from utils.model_selector import load_model
+        print("📥 Pre-loading AI models...")
+        # Start with 'bcc' as it's the default
+        load_model("bcc")
+        print("✅ Default models ready.")
+    except Exception as e:
+        print(f"❌ Startup Model Error: {e}")
 
 @app.route("/")
 def home():
