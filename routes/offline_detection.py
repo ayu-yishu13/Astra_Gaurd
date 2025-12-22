@@ -1,10 +1,11 @@
 import os
 import pandas as pd
 import joblib
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, make_response, after_this_request
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from fpdf import FPDF
+from io import BytesIO
 
 # --- IMPORT UTILS ---
 from utils.pcap_to_csv import convert_pcap_to_csv
@@ -58,7 +59,17 @@ def offline_predict():
     saved_path = os.path.join(UPLOAD_DIR, filename)
     file.save(saved_path)
 
-    # PCAP to CSV Conversion if needed
+    # Cleanup: Delete the uploaded file after the response is sent
+    @after_this_request
+    def cleanup(response):
+        try:
+            if os.path.exists(saved_path):
+                os.remove(saved_path)
+        except Exception as e:
+            print(f"Cleanup Error: {e}")
+        return response
+
+    # PCAP to CSV Conversion
     if filename.lower().endswith(".pcap"):
         try:
             saved_path = convert_pcap_to_csv(saved_path)
@@ -73,20 +84,24 @@ def offline_predict():
     except Exception as e:
         return jsonify(success=False, message=f"Error reading CSV: {str(e)}"), 400
 
-    # 🚀 DYNAMIC MODEL LOADING
-    # This prevents the "File Not Found" error at startup
+    # 🚀 SECURE MODEL LOADING
     try:
         model_data = load_model(model_type)
+        if not model_data or 'model' not in model_data or model_data['model'] is None:
+            raise ValueError("Model object is None. Check version compatibility in requirements.txt")
+
         model = model_data['model']
         
         if model_type == "bcc":
-            encoder = model_data['encoder']
-            scaler = model_data['scaler']
+            encoder = model_data.get('encoder')
+            scaler = model_data.get('scaler')
+            if not encoder or not scaler:
+                raise ValueError("BCC model requires encoder and scaler but they were not found.")
             expected = BCC_FEATURES
         else:
             expected = CICIDS_FEATURES
     except Exception as e:
-        return jsonify(success=False, message=f"Model loading failed: {str(e)}"), 500
+        return jsonify(success=False, message=f"Model failure: {str(e)}"), 500
 
     # Feature Verification
     missing = [c for c in expected if c not in df.columns]
@@ -94,25 +109,28 @@ def offline_predict():
         return jsonify(success=False, message=f"Missing features: {missing}"), 400
 
     # Prediction Logic
-    input_data = df[expected]
-    if model_type == "bcc":
-        scaled = scaler.transform(input_data)
-        preds = model.predict(scaled)
-        labels = encoder.inverse_transform(preds)
-    else:
-        labels = model.predict(input_data)
+    try:
+        input_data = df[expected]
+        if model_type == "bcc":
+            scaled = scaler.transform(input_data)
+            preds = model.predict(scaled)
+            labels = encoder.inverse_transform(preds)
+        else:
+            labels = model.predict(input_data)
 
-    df["prediction"] = labels
-    class_counts = df["prediction"].value_counts().to_dict()
-    results = [{"index": i, "class": lbl} for i, lbl in enumerate(labels)]
+        df["prediction"] = labels
+        class_counts = df["prediction"].value_counts().to_dict()
+        results = [{"index": i, "class": lbl} for i, lbl in enumerate(labels)]
 
-    # Save results for PDF generation
-    result_file = os.path.join(UPLOAD_DIR, "last_results.csv")
-    df.to_csv(result_file, index=False)
+        # Save results for PDF generation
+        result_file = os.path.join(UPLOAD_DIR, "last_results.csv")
+        df.to_csv(result_file, index=False)
 
-    return jsonify(success=True, classCounts=class_counts, results=results)
+        return jsonify(success=True, classCounts=class_counts, results=results)
+    except Exception as e:
+        return jsonify(success=True, message=f"Prediction failed: {str(e)}"), 500
 
-# --- ROUTE: PDF REPORT ---
+# --- ROUTE: PDF REPORT (MEMORY SAFE) ---
 @offline_bp.route("/report", methods=["GET"])
 def offline_report():
     result_file = os.path.join(UPLOAD_DIR, "last_results.csv")
@@ -121,8 +139,8 @@ def offline_report():
 
     df = pd.read_csv(result_file)
     class_counts = df["prediction"].value_counts().to_dict()
-    pdf_path = os.path.join(UPLOAD_DIR, "offline_report.pdf")
 
+    # Generate PDF in memory
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
@@ -140,7 +158,9 @@ def offline_report():
     for cls, count in class_counts.items():
         pdf.cell(0, 8, f"- {cls}: {count} occurrences", ln=True)
 
-    pdf.output(pdf_path)
-    return send_file(pdf_path, as_attachment=True)
-
+    # Convert to bytes for response (no local file saving)
+    response = make_response(pdf.output(dest='S').encode('latin-1'))
+    response.headers.set('Content-Disposition', 'attachment', filename='offline_report.pdf')
+    response.headers.set('Content-Type', 'application/pdf')
+    return response
 
