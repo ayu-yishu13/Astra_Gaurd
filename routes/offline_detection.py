@@ -13,6 +13,7 @@ from utils.model_selector import load_model
 
 offline_bp = Blueprint("offline_bp", __name__)
 
+
 # --- CONFIGURATION ---
 UPLOAD_DIR = "uploads"
 SAMPLE_DIR = "sample"

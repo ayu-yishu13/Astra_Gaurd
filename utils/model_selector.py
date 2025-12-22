@@ -4,6 +4,8 @@ import threading
 import traceback
 from huggingface_hub import hf_hub_download
 import sklearn.utils
+
+
 # --- CONFIGURATION ---
 HF_REPO_ID = "CodebaseAi/netraids-ml-models"  # Replace with your actual public repo ID
 # ---------------------
@@ -12,6 +14,16 @@ ACTIVE_MODEL = "bcc"
 _ACTIVE_LOCK = threading.Lock()
 _MODEL_CACHE = {}
 
+
+try:
+    # We reach into the sub-module to find the "hidden" function
+    import sklearn.utils._column_transformer as ct_utils
+    
+    if not hasattr(sklearn.utils, '_get_column_indices'):
+        sklearn.utils._get_column_indices = ct_utils._get_column_indices
+        print("[Patch] Successfully injected _get_column_indices into sklearn.utils")
+except ImportError:
+    print("[Patch] Could not find _column_transformer sub-module, skipping...")
 # --- PATCH FOR SKLEARN 1.6+ COMPATIBILITY ---
 # This fixes the "cannot import name 'parse_version' from 'sklearn.utils'" error
 if not hasattr(sklearn.utils, 'parse_version'):
