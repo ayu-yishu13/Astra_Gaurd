@@ -24,8 +24,21 @@ ALLOWED_EXT = {"csv", "pcap"}
 
 # --- FEATURE DEFINITIONS (As per your Model Logs) ---
 BCC_FEATURES = [
-    "proto", "src_port", "dst_port", "flow_duration", "total_fwd_pkts", "total_bwd_pkts",
-    "flags_numeric", "payload_len", "header_len", "rate", "iat", "syn", "ack", "rst", "fin"
+    "protocol",           # instead of proto
+    "src_port", 
+    "dst_port", 
+    "duration",           # instead of flow_duration
+    "fwd_packets_count",  # instead of total_fwd_pkts
+    "bwd_packets_count",  # instead of total_bwd_pkts
+    "flags",              # instead of flags_numeric
+    "payload_len", 
+    "header_len", 
+    "bytes_rate",         # instead of rate
+    "iat", 
+    "syn_flag_counts",    # instead of syn
+    "ack_flag_counts",    # instead of ack
+    "rst_flag_counts",    # instead of rst
+    "fin_flag_counts"     # instead of fin
 ]
 
 CICIDS_FEATURES = [
@@ -82,24 +95,36 @@ def offline_predict():
 
     # 2. Flexible Feature Mapping & Flag Extraction
     # Renames common CSV headers to the specific technical names the model expects
+    # 2. Flexible Feature Mapping (Translate to EXACT fit-time names)
     mapping = {
-        'Protocol': 'proto', 'proto': 'proto',
-        'Source Port': 'src_port', 'src_port': 'src_port',
-        'Destination Port': 'dst_port', 'dst_port': 'dst_port',
-        'Flow Duration': 'flow_duration',
-        'Total Fwd Packets': 'total_fwd_pkts',
-        'Total Bwd Packets': 'total_bwd_pkts',
-        'Payload Len': 'payload_len',
-        'Header Len': 'header_len',
-        'IAT': 'iat', 'Rate': 'rate'
+        'Protocol': 'protocol', 'proto': 'protocol',
+        'Source Port': 'src_port',
+        'Destination Port': 'dst_port',
+        'Flow Duration': 'duration', 'flow_duration': 'duration',
+        'Total Fwd Packets': 'fwd_packets_count', 'total_fwd_pkts': 'fwd_packets_count',
+        'Total Bwd Packets': 'bwd_packets_count', 'total_bwd_pkts': 'bwd_packets_count',
+        'Rate': 'bytes_rate', 'rate': 'bytes_rate',
+        'syn': 'syn_flag_counts', 'ack': 'ack_flag_counts', 
+        'rst': 'rst_flag_counts', 'fin': 'fin_flag_counts'
     }
     df = df.rename(columns=mapping)
 
-    # Smart Flag Extraction: If 'syn', 'ack', etc. are missing, try to get them from a 'flags' string
+    # 3. Updated Flag Extraction for the new names
     if 'flags' in df.columns:
-        for f in ['syn', 'ack', 'rst', 'fin']:
-            if f not in df.columns:
-                df[f] = df['flags'].astype(str).str.lower().apply(lambda x: 1 if f in x else 0)
+        # Check for numeric flags if the model expects them
+        df['flags'] = pd.to_numeric(df['flags'], errors='coerce').fillna(0)
+        
+        # Extract individual flag counts if missing
+        flag_map = {
+            'syn_flag_counts': 'syn', 
+            'ack_flag_counts': 'ack', 
+            'rst_flag_counts': 'rst', 
+            'fin_flag_counts': 'fin'
+        }
+        for model_name, csv_name in flag_map.items():
+            if model_name not in df.columns:
+                # If we have a 'flags' string, try to find the flag name in it
+                df[model_name] = df['flags'].astype(str).str.lower().apply(lambda x: 1 if csv_name in x else 0)
 
     # 3. Model Loading & Feature Alignment
     try:
