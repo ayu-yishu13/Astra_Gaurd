@@ -15,7 +15,7 @@ This repository contains the backend API for the AI-NIDS project, deployed as a 
 ## 🚀 Deployment Features
 - **Real-time Monitoring**: Flask-SocketIO with `eventlet`.
 - **Cloud-Ready**: Automatic sniffer bypass for Hugging Face environments.
-- **AI Integration**: Threat analysis via Groq.
+- **AI Integration**: Threat analysis via Groq Llma.
 
 ## 🔒 Required Secrets
 Add these in **Settings > Variables and Secrets**:
