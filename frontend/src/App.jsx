@@ -39,34 +39,12 @@ function AppLayout() {
     <div className="flex min-h-screen text-slate-100 relative bg-transparent overflow-x-hidden">
       <ConstellationBackground />
 
-      {!hideSidebar && (
-        <>
-          {/* Sidebar now receives mobile state props */}
-          <Sidebar 
-            collapsed={collapsed} 
-            setCollapsed={setCollapsed} 
-            isMobileOpen={isMobileOpen} 
-            setIsMobileOpen={setIsMobileOpen} 
-          />
-          
-          {/* MOBILE HAMBURGER BUTTON (Visible only on mobile) */}
-          <button 
-            onClick={() => setIsMobileOpen(true)}
-            className="lg:hidden fixed top-4 left-4 z-[40] p-2 bg-[#0b1120] border border-cyan-500/30 rounded-lg text-cyan-400 shadow-lg"
-          >
-            <Menu size={24} />
-          </button>
-        </>
-      )}
-
       <main
         className={`flex-1 overflow-y-auto p-4 md:p-6 min-h-0 transition-all duration-300
           /* On mobile: 0 margin. On desktop: match sidebar width */
-          ml-0 ${!hideSidebar ? (collapsed ? "lg:ml-20" : "lg:ml-64") : "ml-0"}
+          ml-0 
         `}
       >
-        {/* Top Spacer for Mobile (Prevents content from being hidden under hamburger) */}
-        {!hideSidebar && <div className="h-12 lg:hidden" />}
 
         <FeatureGuard requireLocal={isProtectedFeature}>
           <Routes>

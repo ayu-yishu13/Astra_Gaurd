@@ -4,13 +4,11 @@ import Sidebar from "./Sidebar"; // Import your sidebar
 import ChatAssistant from "../pages/ChatAssistant";
 
 export default function MainLayout({ children }) {
-  // 1. Create the state for Sidebar
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#020617] flex">
-      {/* 2. Add Sidebar and pass the states */}
+    <div className="min-h-screen bg-[#020617] flex overflow-x-hidden">
       <Sidebar 
         collapsed={collapsed} 
         setCollapsed={setCollapsed} 
@@ -18,13 +16,11 @@ export default function MainLayout({ children }) {
         setIsMobileOpen={setIsMobileOpen} 
       />
 
-      {/* 3. Main content area needs flex-1 to fill remaining space */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* 4. Pass setIsMobileOpen to Navbar so the toggle works */}
+      {/* Dynamic margin based on collapsed state for Desktop */}
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${collapsed ? "lg:ml-20" : "lg:ml-64"}`}>
         <Navbar setIsMobileOpen={setIsMobileOpen} />
         
-        {/* 5. Add pt-20 to children to prevent them from hiding under the fixed Navbar */}
-        <main className="flex-1 pt-20">
+        <main className="flex-1 pt-20 p-4 md:p-6">
           {children}
         </main>
         
