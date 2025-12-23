@@ -44,7 +44,7 @@ The entire ASTRAGUARD backend is **Dockerized**, ensuring a "Write Once, Run Any
 <div align="center">
   <table border="0">
     <tr>
-      <td><img src="./screenshots/dashboard_main.png" width="400" alt="Main Dashboard"/><br/><sub><b>Real-Time Monitoring Console</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/b4ee6c17-38c5-4f59-9321-6b8b0a813a13" width="400" alt="Main Dashboard"/><br/><sub><b>Real-Time Monitoring Console</b></sub></td>
       <td><img src="./screenshots/ai_assistant.png" width="400" alt="AI Assistant"/><br/><sub><b>NIDS_CORE_AI Integration</b></sub></td>
     </tr>
     <tr>
