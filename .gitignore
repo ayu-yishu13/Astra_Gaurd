@@ -42,7 +42,7 @@ desktop.ini
 
 # --- Frontend (Excluding local frontend code if in same repo) ---
 # Since you'll deploy the frontend separately to Vercel
-frontend/
+
 node_modules/
 
 build/
