@@ -37,7 +37,7 @@ The entire ASTRAGUARD backend is **Dockerized**, ensuring a "Write Once, Run Any
 ## 📺 Multimedia Showcase
 
 ### 🎥 Video Demonstration
-[![ASTRAGUARD Demo Video](https://img.shields.io/badge/YouTube-Video_Demo-red?style=for-the-badge&logo=youtube)](YOUR_YOUTUBE_LINK_HERE)
+[![ASTRAGUARD Demo Video](https://drive.google.com/file/d/1X7QURL_uyTMlBwrXVFwu2BtLd2_xuNHq/view?usp=drivesdk)](YOUR_YOUTUBE_LINK_HERE)
 *Click the badge above to watch the full system walkthrough, including real-time packet sniffing and AI threat interpretation.*
 
 ### 🖼️ System Gallery
@@ -45,11 +45,18 @@ The entire ASTRAGUARD backend is **Dockerized**, ensuring a "Write Once, Run Any
   <table border="0">
     <tr>
       <td><img src="https://github.com/user-attachments/assets/b4ee6c17-38c5-4f59-9321-6b8b0a813a13" width="400" alt="Main Dashboard"/><br/><sub><b>Real-Time Monitoring Console</b></sub></td>
-      <td><img src="./screenshots/ai_assistant.png" width="400" alt="AI Assistant"/><br/><sub><b>NIDS_CORE_AI Integration</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/bcd7ef9e-0bfd-421e-b875-20791a586573" width="400" alt="AI Assistant"/><br/><sub><b>NIDS_CORE_AI Integration</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/8842ad27-315a-4c8f-80e9-d27ddb35bc19" width="400" alt="AI Assistant"/><br/><sub><b>NIDS_CORE_AI Integration</b></sub></td>
     </tr>
     <tr>
-      <td><img src="./screenshots/threat_detected.png" width="400" alt="Threat Alert"/><br/><sub><b>Classification Result (DDoS/Probe)</b></sub></td>
-      <td><img src="./screenshots/mobile_view.png" width="400" alt="Mobile UI"/><br/><sub><b>Fully Responsive Floating Mobile UI</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/ab8394a1-b21f-41f2-a06a-23028081260e" width="400" alt="Threat Alert"/><br/><sub><b>Classification Result (DDoS/Probe)</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/9cacd1a5-d119-475b-9dd7-9ffb90307b92" width="400" alt="Mobile UI"/><br/><sub><b>Fully Responsive Floating Mobile UI</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/f6d3a3dd-ce49-4693-a16f-81211c812309" width="400" alt="Mobile UI"/><br/><sub><b>Fully Responsive Offline Detection</b></sub></td>
+    </tr>
+    <tr>
+      <td><img src="https://github.com/user-attachments/assets/9f3036be-d87b-43e0-900e-97934d35dd86" width="400" alt="Threat Alert"/><br/><sub><b>Classification Result (DDoS/Probe)</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/07155eb9-b6a3-4774-a430-2c7011156298" width="400" alt="Mobile UI"/><br/><sub><b>Fully Responsive Floating Mobile UI</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/2a3bf937-5ede-4917-86be-5576e32567ef" width="400" alt="Mobile UI"/><br/><sub><b>Fully Responsive Offline Detection</b></sub></td>
     </tr>
   </table>
 </div>
@@ -64,8 +71,22 @@ This project is backed by peer-reviewed research and was presented at a premier 
 **Title:** "A Hybrid Edge-Cloud Architecture for Real-Time Intrusion Detection using Machine Learning and LLM-based Interpretability"  
 **Conference:** **ICMNWC 2025** (International Conference on Mobile Networks and Wireless Communications)  
 **Status:** **Accepted & Presented** > [!IMPORTANT]
-> This project was awarded the **** at the conference, recognizing its contribution to efficient, cloud-integrated network security.
+> This project was awarded the **Best Project Award Aprreciated by Professors** at the conference, recognizing its contribution to efficient, cloud-integrated network security.
 
+
+### 🖼️ Conference Gallery
+<div align="center">
+  <table border="0">
+    <tr>
+      <td><img src="https://github.com/user-attachments/assets/86728373-17d5-482b-99ba-d8ceddf202f5" width="400" alt="Main Dashboard"/><br/><sub><b>IEEE Tumkur</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/8ef44628-d5de-4b2c-8a92-4bb251feab11" width="400" alt="AI Assistant"/><br/><sub><b>Certificate</b></sub></td>
+      <td><img src="https://github.com/user-attachments/assets/219f5023-3f17-4c42-92cb-631245d003e0" width="400" alt="AI Assistant"/><br/><sub><b>Bag</b></sub></td>
+    </tr>
+    <tr>
+      <td ><img src="https://github.com/user-attachments/assets/65539ccd-395f-4274-8384-3365998580e4" width="400" alt="Threat Alert"/><br/><sub><b>Group</b></sub></td>
+    </tr>
+  </table>
+</div>
 
 
 ---
