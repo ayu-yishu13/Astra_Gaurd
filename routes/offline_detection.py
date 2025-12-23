@@ -6,6 +6,8 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
+import time
+import requests
 
 # --- IMPORT UTILS ---
 from utils.pcap_to_csv import convert_pcap_to_csv
@@ -58,6 +60,80 @@ def download_sample(model_type):
     if not os.path.exists(file_path):
         return jsonify(success=False, message="Sample file missing"), 404
     return send_file(file_path, as_attachment=True)
+
+
+# --- ROUTE: URL LIVE PROBE ---
+@offline_bp.route("/analyze-url", methods=["POST"])
+def analyze_url():
+    target_url = request.json.get("url")
+    if not target_url:
+        return jsonify(success=False, message="No URL provided"), 400
+
+    # Ensure URL is properly formatted
+    if not target_url.startswith("http"):
+        target_url = "https://" + target_url
+
+    # 1. Start "Synthetic Capture" (Timing the request)
+    start_ts = time.time()
+    
+    try:
+        # Use a real user-agent to avoid being blocked by the site
+        headers_ua = {'User-Agent': 'Mozilla/5.0 (NIDS-Intelligence-Probe/1.0)'}
+        response = requests.get(target_url, timeout=10, headers=headers_ua, stream=True)
+        end_ts = time.time()
+        
+        # 2. Extract Metadata for Synthetic Features
+        duration = end_ts - start_ts
+        # We read the content length or measure the response body
+        payload_bytes = len(response.content) 
+        header_bytes = len(str(response.headers))
+        
+        # 3. Map to your Model's Features (BCC Format)
+        # We simulate packet counts based on typical TCP handshakes (approx 8-10 packets per small request)
+        synthetic_row = {
+            "protocol": 6, # TCP/HTTPS
+            "src_port": 443,
+            "dst_port": 443,
+            "duration": duration,
+            "packets_count": 10,
+            "fwd_packets_count": 5,
+            "bwd_packets_count": 5,
+            "total_payload_bytes": payload_bytes,
+            "total_header_bytes": header_bytes,
+            "bytes_rate": payload_bytes / duration if duration > 0 else 0,
+            "packets_rate": 10 / duration if duration > 0 else 0,
+            "syn_flag_counts": 1, 
+            "ack_flag_counts": 1,
+            "rst_flag_counts": 0,
+            "fin_flag_counts": 1
+        }
+        
+        # 4. Convert to DataFrame for Prediction
+        df_url = pd.DataFrame([synthetic_row])
+        
+        # --- REUSE YOUR PREDICTION LOGIC ---
+        # Note: You can call a helper function here or reuse the logic from offline_predict
+        # Make sure to apply the same scaler and model you loaded in the other route
+        model_data = load_model("bcc") 
+        scaler = model_data.get('scaler')
+        encoder = model_data.get('encoder')
+        model = model_data['model']
+
+        # Scale and Predict
+        numeric_input = df_url[BCC_FEATURES].apply(pd.to_numeric).fillna(0)
+        scaled_data = scaler.transform(numeric_input.values)
+        preds = model.predict(scaled_data)
+        label = encoder.inverse_transform(preds)[0]
+
+        return jsonify({
+            "success": True,
+            "prediction": str(label),
+            "details": synthetic_row,
+            "url": target_url
+        })
+
+    except Exception as e:
+        return jsonify(success=False, message=f"URL Probe Failed: {str(e)}"), 500
 
 # --- ROUTE: PREDICT ---
 @offline_bp.route("/predict", methods=["POST"])
