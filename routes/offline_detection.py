@@ -23,22 +23,23 @@ os.makedirs(SAMPLE_DIR, exist_ok=True)
 ALLOWED_EXT = {"csv", "pcap"}
 
 # --- FEATURE DEFINITIONS (As per your Model Logs) ---
+# --- UPDATED FEATURE DEFINITIONS ---
 BCC_FEATURES = [
-    "protocol",           # instead of proto
-    "src_port", 
-    "dst_port", 
-    "duration",           # instead of flow_duration
-    "fwd_packets_count",  # instead of total_fwd_pkts
-    "bwd_packets_count",  # instead of total_bwd_pkts
-    "flags",              # instead of flags_numeric
-    "payload_len", 
-    "header_len", 
-    "bytes_rate",         # instead of rate
-    "iat", 
-    "syn_flag_counts",    # instead of syn
-    "ack_flag_counts",    # instead of ack
-    "rst_flag_counts",    # instead of rst
-    "fin_flag_counts"     # instead of fin
+    "protocol",
+    "src_port",
+    "dst_port",
+    "duration",
+    "packets_count",
+    "fwd_packets_count",
+    "bwd_packets_count",
+    "total_payload_bytes",
+    "total_header_bytes",
+    "bytes_rate",
+    "packets_rate",
+    "syn_flag_counts",
+    "ack_flag_counts",
+    "rst_flag_counts",
+    "fin_flag_counts",
 ]
 
 CICIDS_FEATURES = [
@@ -96,6 +97,7 @@ def offline_predict():
     # 2. Flexible Feature Mapping & Flag Extraction
     # Renames common CSV headers to the specific technical names the model expects
     # 2. Flexible Feature Mapping (Translate to EXACT fit-time names)
+    # 2. Flexible Feature Mapping
     mapping = {
         'Protocol': 'protocol', 'proto': 'protocol',
         'Source Port': 'src_port',
@@ -103,28 +105,38 @@ def offline_predict():
         'Flow Duration': 'duration', 'flow_duration': 'duration',
         'Total Fwd Packets': 'fwd_packets_count', 'total_fwd_pkts': 'fwd_packets_count',
         'Total Bwd Packets': 'bwd_packets_count', 'total_bwd_pkts': 'bwd_packets_count',
-        'Rate': 'bytes_rate', 'rate': 'bytes_rate',
+        'Total Length of Fwd Packets': 'total_payload_bytes', 'payload_len': 'total_payload_bytes',
+        'fwd_header_len': 'total_header_bytes', 'header_len': 'total_header_bytes',
+        'Flow Bytes/s': 'bytes_rate', 'rate': 'bytes_rate',
+        'Flow Pkts/s': 'packets_rate',
         'syn': 'syn_flag_counts', 'ack': 'ack_flag_counts', 
         'rst': 'rst_flag_counts', 'fin': 'fin_flag_counts'
     }
     df = df.rename(columns=mapping)
 
-    # 3. Updated Flag Extraction for the new names
-    if 'flags' in df.columns:
-        # Check for numeric flags if the model expects them
-        df['flags'] = pd.to_numeric(df['flags'], errors='coerce').fillna(0)
-        
-        # Extract individual flag counts if missing
-        flag_map = {
-            'syn_flag_counts': 'syn', 
-            'ack_flag_counts': 'ack', 
-            'rst_flag_counts': 'rst', 
-            'fin_flag_counts': 'fin'
-        }
-        for model_name, csv_name in flag_map.items():
-            if model_name not in df.columns:
-                # If we have a 'flags' string, try to find the flag name in it
-                df[model_name] = df['flags'].astype(str).str.lower().apply(lambda x: 1 if csv_name in x else 0)
+    # Calculate packets_count if missing
+    if 'packets_count' not in df.columns and 'fwd_packets_count' in df.columns:
+        df['packets_count'] = df['fwd_packets_count'] + df.get('bwd_packets_count', 0)
+
+    # --- FLAG EXTRACTION LOGIC ---
+    flag_map = {
+        'syn_flag_counts': 'syn', 
+        'ack_flag_counts': 'ack', 
+        'rst_flag_counts': 'rst', 
+        'fin_flag_counts': 'fin'
+    }
+
+    for model_name, csv_name in flag_map.items():
+        if model_name not in df.columns:
+            if 'flags' in df.columns:
+                # Handle String flags safely
+                if df['flags'].dtype == object:
+                    df[model_name] = df['flags'].str.lower().str.contains(csv_name).astype(int)
+                else:
+                    # Fallback for numeric or missing flag data
+                    df[model_name] = 0
+            else:
+                df[model_name] = 0
 
     # 3. Model Loading & Feature Alignment
     try:
@@ -153,7 +165,7 @@ def offline_predict():
             encoder = model_data.get('encoder')
             
             # Scale features (Critical for BCC/MLP models)
-            scaled_data = scaler.transform(input_data)
+            scaled_data = scaler.transform(input_data.values)
             preds = model.predict(scaled_data)
             
             # Convert numeric 0/1 to "Normal"/"DDoS"
@@ -168,6 +180,9 @@ def offline_predict():
         
         # Convert all labels to strings for JSON serializability
         results = [{"index": i, "class": str(lbl)} for i, lbl in enumerate(labels)]
+        
+        # Save results for the PDF report generator
+        df.to_csv(os.path.join(UPLOAD_DIR, "last_results.csv"), index=False)
 
         return jsonify({
             "success": True, 
