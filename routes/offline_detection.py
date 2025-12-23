@@ -154,25 +154,29 @@ def offline_predict():
                 
     except Exception as e:
         return jsonify(success=False, message=f"Model Initialization Error: {str(e)}"), 500
+    
 
     # 4. Prediction Logic
     try:
-        # Reorder columns to match the EXACT training order
+        # 1. Map protocols first!
+        proto_map = {'TCP': 6, 'UDP': 17, 'ICMP': 1, 'tcp': 6, 'udp': 17, 'icmp': 1}
+        df['protocol'] = df['protocol'].apply(lambda x: proto_map.get(x, x) if isinstance(x, str) else x)
+
+        # 2. Reorder columns
         input_data = df[expected] 
-        
+    
         if model_type == "bcc":
             scaler = model_data.get('scaler')
             encoder = model_data.get('encoder')
-            
-            # Scale features (Critical for BCC/MLP models)
-            scaled_data = scaler.transform(input_data.values)
+        
+            # Ensure all columns are numeric before scaling
+            numeric_input = input_data.apply(pd.to_numeric, errors='coerce').fillna(0)
+        
+            # 3. Scale features
+            scaled_data = scaler.transform(numeric_input.values) # Now it's all floats!
             preds = model.predict(scaled_data)
-            
-            # Convert numeric 0/1 to "Normal"/"DDoS"
+        
             labels = encoder.inverse_transform(preds)
-        else:
-            # CICIDS (usually Random Forest) doesn't always need scaling
-            labels = model.predict(input_data)
 
         # 5. Result Formatting for React Frontend
         df["prediction"] = labels
